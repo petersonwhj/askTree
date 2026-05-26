@@ -153,6 +153,24 @@ body {
   justify-content: center; color: #484f58; gap: 12px;
 }
 
+.empty-state.drag-over {
+  background: #1f6feb10;
+  outline: 2px dashed #58a6ff;
+  outline-offset: -8px;
+  border-radius: 8px;
+}
+
+.empty-state-actions {
+  display: flex; gap: 8px;
+}
+
+.empty-state-actions button {
+  padding: 6px 14px; background: #21262d; border: 1px solid #30363d;
+  border-radius: 6px; color: #c9d1d9; cursor: pointer; font-size: 13px;
+}
+
+.empty-state-actions button:hover { background: #30363d; }
+
 .empty-state-textarea {
   width: 500px; height: 200px; background: #0d1117; border: 1px solid #30363d;
   border-radius: 8px; padding: 12px; color: #c9d1d9; font-size: 14px; resize: vertical;

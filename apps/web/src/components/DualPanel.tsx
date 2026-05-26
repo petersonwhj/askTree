@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
 import { QuestionInputBar } from "./QuestionInputBar";
@@ -13,7 +13,10 @@ export function DualPanel() {
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const currentNode = activePath[activePath.length - 1];
   const [currentNodeContent, setCurrentNodeContent] = useState<string | null>(null);
@@ -27,11 +30,67 @@ export function DualPanel() {
   }, [currentNode, store]);
 
   if (!currentNode) {
+    const handleFileLoad = async (file: File) => {
+      try {
+        const text = await file.text();
+        setNewContent(text);
+        const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
+        setNewTitle(title);
+      } catch (e) {
+        setError("Failed to read file: " + (e as Error).message);
+      }
+    };
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileLoad(file);
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+    }, []);
+
+    const handleStart = async () => {
+      const content = newArticleRef.current?.value || newContent;
+      if (!content) return;
+      await createRootTree(content, newTitle || "Untitled");
+      setNewContent("");
+      setNewTitle("");
+    };
+
     return (
       <div className="dual-panel">
-        <div className="empty-state">
+        <div
+          className={`empty-state ${isDragOver ? "drag-over" : ""}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
           <h2>Welcome to AskTree</h2>
-          <p>Paste or type a Markdown article to start learning.</p>
+          <p>Paste an article, load a file, or drag & drop a Markdown file to start learning.</p>
+
+          <div className="empty-state-actions">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.markdown,.txt"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileLoad(file);
+              }}
+            />
+            <button onClick={() => fileInputRef.current?.click()}>Load .md File</button>
+          </div>
+
           <input
             type="text" placeholder="Article title..." value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
@@ -41,12 +100,17 @@ export function DualPanel() {
             ref={newArticleRef}
             placeholder="# Your Markdown article here..."
             className="empty-state-textarea"
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
           />
-          <button onClick={async () => {
-            const content = newArticleRef.current?.value;
-            if (!content) return;
-            await createRootTree(content, newTitle || "Untitled");
-          }}>Start Learning</button>
+          <button onClick={handleStart}>Start Learning</button>
+
+          {error && (
+            <div className="error-banner">
+              Error: {error}
+              <button onClick={() => setError(null)} className="error-dismiss">Dismiss</button>
+            </div>
+          )}
         </div>
       </div>
     );
