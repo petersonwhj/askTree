@@ -53,9 +53,6 @@ importers:
       markdown-it-katex:
         specifier: ^2.0.3
         version: 2.0.3
-      marked:
-        specifier: ^14.0
-        version: 14.1.4
       react:
         specifier: ^18.3
         version: 18.3.1
@@ -1128,11 +1125,6 @@ packages:
 
   markdown-it@14.2.0:
     resolution: {integrity: sha512-1TGiQiJVRQ3NPmZH6sx5Cfnmg6GQm9jvC1ch4TK511NjSJvjzKLzn5pPfZRNZkRPZP0HqCioSndqH8v2nRaWVQ==}
-    hasBin: true
-
-  marked@14.1.4:
-    resolution: {integrity: sha512-vkVZ8ONmUdPnjCKc5uTRvmkRbx4EAi2OkTOXmfTDhZz3OFqMNBM1oTTWwTr4HY4uAEojhzPf+Fy8F1DWa3Sndg==}
-    engines: {node: '>= 18'}
     hasBin: true
 
   math-intrinsics@1.1.0:
@@ -2408,8 +2400,6 @@ snapshots:
       mdurl: 2.0.0
       punycode.js: 2.3.1
       uc.micro: 2.1.0
-
-  marked@14.1.4: {}
 
   math-intrinsics@1.1.0: {}
 
