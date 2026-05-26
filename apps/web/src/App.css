@@ -76,6 +76,36 @@ body {
   border-radius: 4px; color: #c9d1d9; padding: 1px 4px;
 }
 
+.markdown-pane ul, .markdown-pane ol { padding-left: 24px; margin: 8px 0; }
+.markdown-pane li { margin: 4px 0; }
+.markdown-pane li > ul, .markdown-pane li > ol { margin: 4px 0; }
+
+.markdown-pane blockquote {
+  margin: 12px 0; padding: 4px 16px;
+  border-left: 3px solid #58a6ff;
+  color: #8b949e;
+}
+
+.markdown-pane a { color: #58a6ff; text-decoration: none; }
+.markdown-pane a:hover { text-decoration: underline; }
+
+.markdown-pane img { max-width: 100%; border-radius: 4px; }
+
+.markdown-pane hr { margin: 20px 0; border: none; border-top: 1px solid #30363d; }
+
+.markdown-pane table {
+  border-collapse: collapse; width: 100%; margin: 12px 0;
+}
+.markdown-pane th, .markdown-pane td {
+  border: 1px solid #30363d; padding: 6px 12px; text-align: left; font-size: 13px;
+}
+.markdown-pane th { background: #161b22; font-weight: 600; }
+
+.markdown-pane strong { color: #e2b714; font-weight: 600; }
+
+.markdown-pane .katex { font-size: 1.1em; }
+.markdown-pane .katex-display { margin: 16px 0; overflow-x: auto; overflow-y: hidden; }
+
 .markdown-pane {
   flex: 1; padding: 16px; overflow-y: auto; font-size: 14px;
   line-height: 1.7; position: relative; background: #0d1117;
