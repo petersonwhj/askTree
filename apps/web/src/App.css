@@ -104,11 +104,13 @@ body {
 .markdown-pane strong { color: #e2b714; font-weight: 600; }
 
 .markdown-pane .katex { font-size: 1.1em; }
-.markdown-pane .katex-display { margin: 16px 0; overflow-x: auto; overflow-y: hidden; }
+.markdown-pane .katex-display { margin: 20px 0; overflow-x: auto; overflow-y: hidden; padding: 8px 0; }
+.markdown-pane .katex-inline { margin: 0 2px; }
 
 .markdown-pane {
-  flex: 1; padding: 16px; overflow-y: auto; font-size: 14px;
-  line-height: 1.7; position: relative; background: #0d1117;
+  flex: 1; padding: 20px; overflow-y: auto; font-size: 15px;
+  line-height: 1.8; position: relative; background: #0d1117;
+  max-width: calc(100% - 40px);
 }
 
 .markdown-pane :first-child { margin-top: 0; }
