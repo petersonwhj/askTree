@@ -27,7 +27,10 @@ export function TreeSidebar() {
     );
   };
 
-  const root = store.getRoot?.();
+  let root = null;
+  try {
+    root = store.getRoot();
+  } catch {}
   if (!root) return null;
 
   return (
