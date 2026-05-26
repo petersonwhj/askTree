@@ -1,5 +1,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+.katex, .katex * { box-sizing: content-box; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #0d1117;
