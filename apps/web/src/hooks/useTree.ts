@@ -1,0 +1,97 @@
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { TreeStore, LLMService, DEFAULT_PROMPT_CONFIG, type Node, type Edge, type ExportBundle, type PromptConfig } from "@asktree/core";
+import { IndexedDBStorageAdapter } from "../storage/indexeddb-adapter";
+
+interface TreeContextValue {
+  store: TreeStore;
+  llm: LLMService;
+  activePath: Node[];
+  navigateTo: (nodeId: string) => void;
+  navigateUp: () => void;
+  createRootTree: (content: string, title: string) => Promise<void>;
+  addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
+  selectedText: { text: string; start: number; end: number; nodeId: string } | null;
+  setSelectedText: (s: TreeContextValue["selectedText"]) => void;
+  importBundle: (bundle: ExportBundle) => Promise<void>;
+  exportBundle: () => Promise<ExportBundle | null>;
+  promptConfig: PromptConfig;
+  setPromptConfig: (c: PromptConfig) => void;
+  isLoading: boolean;
+}
+
+const TreeContext = createContext<TreeContextValue | null>(null);
+
+export function TreeProvider({ children }: { children: React.ReactNode }) {
+  const storeRef = useRef(new TreeStore(new IndexedDBStorageAdapter()));
+  const llmRef = useRef(new LLMService());
+  const [activePath, setActivePath] = useState<Node[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedText, setSelectedText] = useState<TreeContextValue["selectedText"]>(null);
+  const [promptConfig, setPromptConfig] = useState<PromptConfig>(DEFAULT_PROMPT_CONFIG);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const adapter = new IndexedDBStorageAdapter();
+        const meta = await adapter.readTreeMeta();
+        if (meta) {
+          const store = await TreeStore.deserialize(meta, adapter);
+          storeRef.current = store;
+          setActivePath([store.getRoot()]);
+        }
+      } catch {}
+      setIsLoading(false);
+    })();
+  }, []);
+
+  const navigateTo = useCallback((nodeId: string) => {
+    setActivePath(storeRef.current.getPath(nodeId));
+  }, []);
+
+  const navigateUp = useCallback(() => {
+    if (activePath.length > 1) setActivePath((p) => p.slice(0, -1));
+  }, [activePath]);
+
+  const createRootTree = useCallback(async (content: string, title: string) => {
+    const root = await storeRef.current.createTree(content, title);
+    setActivePath([root]);
+  }, []);
+
+  const addChildNode = useCallback(async (
+    parentId: string,
+    edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">,
+    answerContent: string,
+  ) => {
+    const child = await storeRef.current.addChild(parentId, edge, answerContent);
+    setActivePath(storeRef.current.getPath(child.id));
+    return child;
+  }, []);
+
+  const importBundleFn = useCallback(async (bundle: ExportBundle) => {
+    const adapter = new IndexedDBStorageAdapter();
+    const store = await TreeStore.importBundle(bundle, adapter);
+    storeRef.current = store;
+    setActivePath([store.getRoot()]);
+  }, []);
+
+  const exportBundleFn = useCallback(async () => {
+    try { return await storeRef.current.exportBundle(); }
+    catch { return null; }
+  }, []);
+
+  return (
+    <TreeContext.Provider value={{
+      store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp,
+      createRootTree, addChildNode, selectedText, setSelectedText,
+      importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
+    }}>
+      {children}
+    </TreeContext.Provider>
+  );
+}
+
+export function useTree() {
+  const ctx = useContext(TreeContext);
+  if (!ctx) throw new Error("useTree must be used within TreeProvider");
+  return ctx;
+}

@@ -1,15 +1,22 @@
 import { defineConfig } from "vitest/config";
-import { resolve } from "path";
+import path from "path";
+
+const projectRoot = path.resolve(__dirname);
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@asktree/core": resolve(__dirname, "packages/core/src/index.ts"),
-    },
-  },
   test: {
     include: ["tests/**/*.test.{ts,tsx}", "packages/**/*.test.{ts,tsx}", "apps/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     globals: true,
+    server: {
+      deps: {
+        inline: ["@asktree/core"],
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      "@asktree/core": path.resolve(__dirname, "packages/core/src/index.ts"),
+    },
   },
 });
