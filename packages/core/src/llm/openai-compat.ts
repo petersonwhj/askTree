@@ -1,0 +1,39 @@
+import type { LLMConfig, AskOptions } from "../types";
+
+export async function askOpenAICompat(config: LLMConfig, options: AskOptions): Promise<string> {
+  const url = `${config.endpoint}/chat/completions`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
+        },
+        {
+          role: "user",
+          content:
+            options.contextSlices.map((s) => s.surrounding).join("\n\n") +
+            `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`,
+        },
+      ],
+      stream: false,
+    }),
+    signal: options.signal,
+  });
+
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) throw new Error("AuthError: invalid API key");
+    if (resp.status === 429) throw new Error("RateLimitError");
+    throw new Error(`API error: ${resp.status}`);
+  }
+
+  const json = await resp.json();
+  return json.choices?.[0]?.message?.content ?? "";
+}
