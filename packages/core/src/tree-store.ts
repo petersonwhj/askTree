@@ -37,6 +37,12 @@ export class TreeStore {
     return { ...this.nodes.get(this.rootNodeId)! };
   }
 
+  async reset(): Promise<void> {
+    await this.adapter.clear();
+    this.nodes.clear();
+    this.rootNodeId = null;
+  }
+
   getAllNodes(): Node[] {
     return Array.from(this.nodes.values()).map((n) => ({ ...n }));
   }

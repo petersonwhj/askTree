@@ -76,6 +76,12 @@ body {
   border-radius: 4px; color: #c9d1d9; padding: 1px 4px;
 }
 
+.load-file-btn {
+  font-size: 11px; background: #21262d; border: 1px solid #58a6ff;
+  border-radius: 4px; color: #58a6ff; padding: 1px 8px; cursor: pointer;
+}
+.load-file-btn:hover { background: #1a3a5c; }
+
 .markdown-pane ul, .markdown-pane ol { padding-left: 24px; margin: 8px 0; }
 .markdown-pane li { margin: 4px 0; }
 .markdown-pane li > ul, .markdown-pane li > ol { margin: 4px 0; }
@@ -103,14 +109,11 @@ body {
 
 .markdown-pane strong { color: #e2b714; font-weight: 600; }
 
-.markdown-pane .katex { font-size: 1.1em; }
-.markdown-pane .katex-display { margin: 20px 0; overflow-x: auto; overflow-y: hidden; padding: 8px 0; }
-.markdown-pane .katex-inline { margin: 0 2px; }
-
 .markdown-pane {
+  width: 100%;
+  box-sizing: border-box;
   flex: 1; padding: 20px; overflow-y: auto; font-size: 15px;
   line-height: 1.8; position: relative; background: #0d1117;
-  max-width: calc(100% - 40px);
 }
 
 .markdown-pane :first-child { margin-top: 0; }

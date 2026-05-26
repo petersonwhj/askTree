@@ -8,10 +8,7 @@ const md = new MarkdownIt({ html: false, breaks: true, linkify: true })
 export function renderMarkdown(content: string): string {
   try {
     const raw = md.render(content);
-    return DOMPurify.sanitize(raw, {
-      ADD_TAGS: ["math", "semantics", "annotation", "mrow", "mi", "mo", "mn", "msup", "mfrac", "msqrt", "mover", "munder", "mtable", "mtr", "mtd", "mstyle", "mspace", "mpadded", "mphantom", "menclose"],
-      ADD_ATTR: ["xmlns", "encoding", "data-line", "linethickness"],
-    });
+    return raw;
   } catch {
     return `<pre>${escapeHtml(content)}</pre>`;
   }

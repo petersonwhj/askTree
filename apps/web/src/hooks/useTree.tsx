@@ -9,6 +9,7 @@ interface TreeContextValue {
   navigateTo: (nodeId: string) => void;
   navigateUp: () => void;
   createRootTree: (content: string, title: string) => Promise<void>;
+  resetTree: () => Promise<void>;
   addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
   selectedText: { text: string; start: number; end: number; nodeId: string } | null;
   setSelectedText: (s: TreeContextValue["selectedText"]) => void;
@@ -57,6 +58,12 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     setActivePath([root]);
   }, []);
 
+  const resetTree = useCallback(async () => {
+    await storeRef.current.reset();
+    setActivePath([]);
+    setSelectedText(null);
+  }, []);
+
   const addChildNode = useCallback(async (
     parentId: string,
     edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">,
@@ -81,8 +88,8 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <TreeContext.Provider value={{
-      store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp,
-      createRootTree, addChildNode, selectedText, setSelectedText,
+        store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp,
+        createRootTree, resetTree, addChildNode, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
     }}>
       {children}

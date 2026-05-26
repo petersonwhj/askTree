@@ -7,7 +7,7 @@ import { collectContext, renderPrompt } from "@asktree/core";
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, promptConfig, createRootTree,
+    addChildNode, promptConfig, createRootTree, resetTree,
   } = useTree();
 
   const [isAsking, setIsAsking] = useState(false);
@@ -29,35 +29,22 @@ export function DualPanel() {
     }
   }, [currentNode, store]);
 
-  if (!currentNode) {
-    const handleFileLoad = async (file: File) => {
-      try {
-        const text = await file.text();
-        setNewContent(text);
-        const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-        setNewTitle(title);
-      } catch (e) {
-        setError("Failed to read file: " + (e as Error).message);
+  const handleFileLoad = useCallback(async (file: File) => {
+    try {
+      const text = await file.text();
+      const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
+      if (currentNode) {
+        await resetTree();
       }
-    };
+      await createRootTree(text, title);
+      setNewContent("");
+      setNewTitle("");
+    } catch (e) {
+      setError("Failed to read file: " + (e as Error).message);
+    }
+  }, [createRootTree, resetTree, currentNode]);
 
-    const handleDrop = useCallback((e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFileLoad(file);
-    }, []);
-
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-    }, []);
-
+  if (!currentNode) {
     const handleStart = async () => {
       const content = newArticleRef.current?.value || newContent;
       if (!content) return;
@@ -70,9 +57,14 @@ export function DualPanel() {
       <div className="dual-panel">
         <div
           className={`empty-state ${isDragOver ? "drag-over" : ""}`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileLoad(file);
+          }}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
         >
           <h2>Welcome to AskTree</h2>
           <p>Paste an article, load a file, or drag & drop a Markdown file to start learning.</p>
@@ -151,14 +143,32 @@ export function DualPanel() {
           <span className="node-type">
             {currentNode.type === "article" ? "📄" : "❓"} {currentNode.title.slice(0, 50)}
           </span>
-          <select
-            value={currentNode.status}
-            onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
-            className="status-select"
-          >
-            <option value="question">question</option>
-            <option value="resolved">resolved</option>
-          </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.markdown,.txt"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileLoad(file);
+              }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="load-file-btn"
+            >
+              Load File
+            </button>
+            <select
+              value={currentNode.status}
+              onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
+              className="status-select"
+            >
+              <option value="question">question</option>
+              <option value="resolved">resolved</option>
+            </select>
+          </div>
         </div>
         {currentNodeContent !== null && (
           <MarkdownPane
