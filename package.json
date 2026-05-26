@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "asktree-monorepo",
+  "scripts": {
+    "dev": "pnpm --filter @asktree/web dev",
+    "build": "pnpm --filter @asktree/core build && pnpm --filter @asktree/web build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5",
+    "vitest": "^2.0"
+  }
+}
