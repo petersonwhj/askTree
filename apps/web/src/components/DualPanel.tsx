@@ -3,15 +3,16 @@ import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
 import { QuestionInputBar } from "./QuestionInputBar";
 import { collectContext, renderPrompt } from "@asktree/core";
+import type { Node } from "@asktree/core";
 
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, promptConfig, createRootTree, resetTree,
+    addChildNode, promptConfig, createRootTree, resetTree, navigateTo,
   } = useTree();
 
-  const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -120,26 +121,57 @@ export function DualPanel() {
 
   const handleSendQuestion = async (question: string) => {
     setError(null);
-    setIsAsking(true);
     const questionedNodeId = selectedText?.nodeId || currentNode.id;
+    const askedText = selectedText?.text || "";
+    const askedStart = selectedText?.start || 0;
+    const askedEnd = selectedText?.end || 0;
+    setSelectedText(null);
+
+    const placeholder = `> **Question:** ${question}\n\n` +
+      (askedText ? `> About: "${askedText.slice(0, 80)}"\n\n` : "") +
+      `⏳ Analyzing...`;
+
+    let childNode: Node;
     try {
-      const slices = await collectContext(questionedNodeId, "", store, promptConfig);
-      renderPrompt(slices, question, promptConfig.template);
-      const answer = await llm.ask({ question, contextSlices: slices });
-
-      await addChildNode(questionedNodeId, {
-        selectedText: selectedText?.text || "",
-        startPos: selectedText?.start || 0,
-        endPos: selectedText?.end || 0,
+      childNode = await store.addChild(questionedNodeId, {
+        selectedText: askedText,
+        startPos: askedStart,
+        endPos: askedEnd,
         question,
-      }, answer);
-
-      setSelectedText(null);
+      }, placeholder);
     } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setIsAsking(false);
+      setError("Failed to create node: " + (e as Error).message);
+      return;
     }
+
+    const childId = childNode.id;
+    setLoadingNodes((prev) => new Set(prev).add(childId));
+    navigateTo(childId);
+
+    (async () => {
+      try {
+        const slices = await collectContext(questionedNodeId, "", store, promptConfig);
+        renderPrompt(slices, question, promptConfig.template);
+        const answer = await llm.ask({ question, contextSlices: slices });
+        await store.updateContent(childId, answer);
+        if (childId === currentNode?.id || childId === activePath[activePath.length - 1]?.id) {
+          setChildContent(answer);
+        }
+      } catch (e) {
+        const errMsg = `**Error:** ${(e as Error).message}\n\n> ${question}`;
+        await store.updateContent(childId, errMsg);
+        if (childId === activePath[activePath.length - 1]?.id) {
+          setChildContent(errMsg);
+        }
+        setError((e as Error).message);
+      } finally {
+        setLoadingNodes((prev) => {
+          const next = new Set(prev);
+          next.delete(childId);
+          return next;
+        });
+      }
+    })();
   };
 
   const handleTextSelected = (text: string, start: number, end: number, nodeId: string) => {
@@ -223,7 +255,7 @@ export function DualPanel() {
         <QuestionInputBar
           contextText={selectedText?.text || null}
           onSend={handleSendQuestion}
-          isLoading={isAsking}
+          isLoading={false}
         />
       </div>
     </div>

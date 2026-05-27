@@ -53,7 +53,7 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
     });
 
     const contentEl = contentRef.current;
-    if (contentEl) {
+    if (contentEl && sel.anchorNode && sel.focusNode) {
       try {
         const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
         const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);

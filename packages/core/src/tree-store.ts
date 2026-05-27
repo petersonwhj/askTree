@@ -113,6 +113,11 @@ export class TreeStore {
     this.persist();
   }
 
+  async updateContent(id: string, content: string): Promise<void> {
+    if (!this.nodes.has(id)) throw new Error("Node not found");
+    await this.adapter.writeNodeContent(id, content);
+  }
+
   async removeNode(id: string): Promise<void> {
     if (id === this.rootNodeId) throw new Error("Cannot remove root node");
     const node = this.nodes.get(id);
