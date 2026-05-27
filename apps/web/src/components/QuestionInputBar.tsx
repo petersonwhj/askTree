@@ -41,7 +41,7 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             handleSend();
           }

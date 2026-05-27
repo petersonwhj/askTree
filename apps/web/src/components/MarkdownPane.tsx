@@ -54,9 +54,15 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
 
     const contentEl = contentRef.current;
     if (contentEl) {
-      const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
-      const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
-      setSelectionRange({ text, start: Math.min(start, end), end: Math.max(start, end) });
+      try {
+        const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
+        const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
+        setSelectionRange({ text, start: Math.min(start, end), end: Math.max(start, end) });
+      } catch {
+        const t = containerRef.current?.textContent || "";
+        const s = t.indexOf(text);
+        setSelectionRange({ text, start: s, end: s >= 0 ? s + text.length : 0 });
+      }
     }
   }, []);
 
@@ -66,7 +72,7 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
   }, [handleSelection]);
 
   const handleAsk = () => {
-    if (selectionRange) {
+    if (selectionRange && selectionRange.start >= 0) {
       onTextSelected(selectionRange.text, selectionRange.start, selectionRange.end);
       setFloatingPos(null);
       setSelectionRange(null);
