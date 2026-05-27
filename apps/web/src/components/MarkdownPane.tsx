@@ -5,7 +5,37 @@ import { FloatingAskButton } from "./FloatingAskButton";
 interface Props {
   content: string;
   highlights?: Array<{ startPos: number; endPos: number; nodeId: string }>;
+  highlight?: { start: number; end: number } | null;
   onTextSelected: (text: string, startPos: number, endPos: number) => void;
+}
+
+function applyHighlight(root: HTMLElement, start: number, end: number) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  const nodes: Array<{ node: Text; start: number; end: number }> = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const len = node.textContent?.length || 0;
+    const nodeStart = offset;
+    const nodeEnd = offset + len;
+    if (nodeEnd > start && nodeStart < end) {
+      nodes.push({
+        node,
+        start: Math.max(0, start - nodeStart),
+        end: Math.min(len, end - nodeStart),
+      });
+    }
+    offset += len;
+    if (offset > end) break;
+  }
+  for (const { node, start: s, end: e } of nodes) {
+    const range = document.createRange();
+    range.setStart(node, s);
+    range.setEnd(node, e);
+    const mark = document.createElement("mark");
+    mark.className = "asktree-highlight";
+    range.surroundContents(mark);
+  }
 }
 
 function getTextOffset(container: Node, targetNode: Node, targetOffset: number): number {
@@ -15,7 +45,7 @@ function getTextOffset(container: Node, targetNode: Node, targetOffset: number):
   return range.toString().length;
 }
 
-export function MarkdownPane({ content, onTextSelected }: Props) {
+export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [floatingPos, setFloatingPos] = useState<{ text: string; top: number; left: number } | null>(null);
@@ -24,8 +54,11 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.innerHTML = renderMarkdown(content);
+      if (highlight && highlight.start >= 0 && highlight.end > highlight.start) {
+        applyHighlight(contentRef.current, highlight.start, highlight.end);
+      }
     }
-  }, [content]);
+  }, [content, highlight]);
 
   const handleSelection = useCallback(() => {
     const sel = window.getSelection();

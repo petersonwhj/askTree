@@ -40,6 +40,12 @@ body {
 
 .tree-sidebar h3 { font-size: 11px; text-transform: uppercase; color: #8b949e; margin-bottom: 8px; }
 
+.sidebar-divider {
+  width: 4px; cursor: col-resize; background: #30363d;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.sidebar-divider:hover { background: #58a6ff; }
+
 .tree-node {
   font-size: 12px; padding: 3px 6px; cursor: pointer; border-radius: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #8b949e;
@@ -129,6 +135,10 @@ body {
   box-sizing: border-box;
   flex: 1; padding: 20px; overflow-y: auto; font-size: 15px;
   line-height: 1.8; position: relative; background: #0d1117;
+}
+
+.asktree-highlight {
+  background: #e2b71440; color: inherit; padding: 0 2px; border-radius: 2px;
 }
 
 .markdown-pane :first-child { margin-top: 0; }

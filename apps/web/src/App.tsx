@@ -34,6 +34,23 @@ function AppContent() {
   const { isLoading } = useTree();
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+
+  const handleSidebarDividerDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.min(400, Math.max(120, startW + (ev.clientX - startX)));
+      setSidebarWidth(w);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
 
   if (isLoading) {
     return (
@@ -47,7 +64,12 @@ function AppContent() {
     <div className="app">
       <AppHeader onSettings={() => setShowSettings(true)} onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <div className="app-body">
-        {sidebarOpen && <TreeSidebar />}
+        {sidebarOpen && (
+          <>
+            <TreeSidebar style={{ width: sidebarWidth, flex: "none" }} />
+            <div className="sidebar-divider" onMouseDown={handleSidebarDividerDown} />
+          </>
+        )}
         <div className="app-main">
           <BreadcrumbBar />
           <DualPanel />

@@ -8,7 +8,7 @@ import type { Node } from "@asktree/core";
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, promptConfig, createRootTree, resetTree, navigateTo, focusNode,
+    addChildNode, promptConfig, createRootTree, resetTree, navigateTo, focusNode, navigateUp,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -227,6 +227,14 @@ export function DualPanel() {
         {parentContent !== null && (
           <MarkdownPane
             content={parentContent}
+            highlight={
+              currentNode.id !== parentNode.id
+                ? (() => {
+                    const edge = parentNode.children.find(e => e.targetNodeId === currentNode.id);
+                    return edge && edge.startPos >= 0 ? { start: edge.startPos, end: edge.endPos } : null;
+                  })()
+                : null
+            }
             onTextSelected={(text, start, end) => handleTextSelected(text, start, end, parentNode.id)}
           />
         )}
@@ -244,7 +252,7 @@ export function DualPanel() {
               </span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
-                  onClick={() => focusNode(parentNode.id)}
+                  onClick={() => navigateUp()}
                   className="close-panel-btn"
                   title="Close answer"
                 >

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import type { Node } from "@asktree/core";
 
-export function TreeSidebar() {
+export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
   const { store, activePath, focusNode, resetTree } = useTree();
   const currentId = activePath[activePath.length - 1]?.id;
   const root = (() => { try { return store.getRoot(); } catch { return null; } })();
@@ -49,7 +49,7 @@ export function TreeSidebar() {
   if (!root) return null;
 
   return (
-    <aside className="tree-sidebar">
+    <aside className="tree-sidebar" style={style}>
       <h3>Tree Map</h3>
       {renderNode(root, 0)}
     </aside>
