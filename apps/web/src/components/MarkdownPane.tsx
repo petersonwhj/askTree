@@ -44,12 +44,11 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
     }
 
     const rect = range.getBoundingClientRect();
-    const containerRect = containerRef.current.getBoundingClientRect();
 
     setFloatingPos({
       text,
-      top: rect.bottom - containerRect.top + 4,
-      left: rect.left - containerRect.left + rect.width / 2 - 60,
+      top: rect.bottom + 4,
+      left: rect.left + rect.width / 2 - 60,
     });
 
     const contentEl = contentRef.current;
