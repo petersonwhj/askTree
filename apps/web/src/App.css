@@ -133,33 +133,36 @@ body {
 .floating-ask:hover { background: #232340; }
 
 .question-input-bar {
-  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-  border-top: 1px solid #30363d; background: #161b22; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border-top: 1px solid #30363d;
+  background: #161b22; flex-shrink: 0;
 }
 
 .context-badge {
   font-size: 12px; color: #e2b714; background: #e2b71420;
-  padding: 2px 8px; border-radius: 4px; flex-shrink: 0;
-  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 2px 8px; border-radius: 4px; align-self: flex-start;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .context-label {
-  font-size: 12px; color: #484f58; flex-shrink: 0;
+  font-size: 12px; color: #484f58; align-self: flex-start;
 }
 
-.question-input-bar input,
-.question-input-bar textarea {
+.input-row {
+  display: flex; align-items: flex-end; gap: 8px;
+}
+
+.input-row textarea {
   flex: 1; background: #0d1117; border: 1px solid #30363d;
   border-radius: 6px; padding: 10px 14px; color: #c9d1d9; font-size: 14px;
-  font-family: inherit; resize: none; min-height: 42px; max-height: 160px;
-  line-height: 1.5;
+  font-family: inherit; resize: none; line-height: 1.5;
 }
-.question-input-bar input:focus,
-.question-input-bar textarea:focus { outline: none; border-color: #58a6ff; }
+.input-row textarea:focus { outline: none; border-color: #58a6ff; }
 
 .question-input-bar button {
   padding: 10px 18px; background: #238636; border: 1px solid #238636;
   border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; flex-shrink: 0;
+  align-self: flex-end;
 }
 .question-input-bar button:hover { background: #2ea043; }
 .question-input-bar button:disabled { opacity: 0.5; cursor: default; }
