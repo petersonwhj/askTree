@@ -10,8 +10,15 @@ interface Props {
 
 export function MarkdownPane({ content, onTextSelected }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [floatingPos, setFloatingPos] = useState<{ text: string; top: number; left: number } | null>(null);
   const [selectionRange, setSelectionRange] = useState<{ text: string; start: number; end: number } | null>(null);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.innerHTML = renderMarkdown(content);
+    }
+  }, [content]);
 
   const handleSelection = useCallback(() => {
     const sel = window.getSelection();
@@ -58,11 +65,9 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
     }
   };
 
-  const html = renderMarkdown(content);
-
   return (
     <div className="markdown-pane" ref={containerRef}>
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={contentRef} />
       {floatingPos && (
         <FloatingAskButton
           text={floatingPos.text}
