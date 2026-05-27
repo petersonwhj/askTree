@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { renderMarkdown } from "../lib/markdown";
 
 interface Props { contextText: string | null; onSend: (question: string) => void; isLoading: boolean; }
 
@@ -7,6 +8,12 @@ const MAX_ROWS = 10;
 export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const contextHtml = useMemo(() => {
+    if (!contextText) return null;
+    const raw = renderMarkdown(contextText);
+    return raw.replace(/^<p>|<\/p>\n?$/g, "");
+  }, [contextText]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -34,9 +41,9 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
 
   return (
     <div className="question-input-bar">
-      {contextText ? (
-        <span className="context-badge" title={contextText}>
-          "{contextText.slice(0, 50)}{contextText.length > 50 ? "..." : ""}"
+      {contextHtml ? (
+        <span className="context-badge" title={contextText || ""}>
+          <span dangerouslySetInnerHTML={{ __html: contextHtml }} />
         </span>
       ) : (
         <span className="context-label">Free ask</span>
@@ -44,7 +51,7 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
       <div className="input-row">
         <textarea
           ref={taRef}
-          placeholder={contextText ? `About "${contextText.slice(0, 30)}"...` : "Ask anything..."}
+          placeholder={contextText ? `About: ${contextText.slice(0, 40)}...` : "Ask anything..."}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
