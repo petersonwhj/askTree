@@ -8,6 +8,13 @@ interface Props {
   onTextSelected: (text: string, startPos: number, endPos: number) => void;
 }
 
+function getTextOffset(container: Node, targetNode: Node, targetOffset: number): number {
+  const range = document.createRange();
+  range.setStart(container, 0);
+  range.setEnd(targetNode, targetOffset);
+  return range.toString().length;
+}
+
 export function MarkdownPane({ content, onTextSelected }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -45,10 +52,12 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
       left: rect.left - containerRect.left + rect.width / 2 - 60,
     });
 
-    const textContent = containerRef.current.textContent || "";
-    const start = textContent.indexOf(text);
-    const end = start >= 0 ? start + text.length : 0;
-    setSelectionRange({ text, start, end });
+    const contentEl = contentRef.current;
+    if (contentEl) {
+      const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
+      const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
+      setSelectionRange({ text, start: Math.min(start, end), end: Math.max(start, end) });
+    }
   }, []);
 
   useEffect(() => {
