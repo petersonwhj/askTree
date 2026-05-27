@@ -2,18 +2,74 @@ import { useState } from "react";
 import { useTree } from "../hooks/useTree";
 import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 
+type Provider = "ollama" | "openai" | "gateway";
+
+const PRESETS: Record<Provider, {
+  endpoint: string;
+  model: string;
+  endpointPlaceholder: string;
+  modelPlaceholder: string;
+  needsAuth: boolean;
+  authLabel: string;
+}> = {
+  ollama: {
+    endpoint: "http://localhost:11434",
+    model: "llama3",
+    endpointPlaceholder: "http://localhost:11434",
+    modelPlaceholder: "llama3",
+    needsAuth: false,
+    authLabel: "API Key (optional)",
+  },
+  openai: {
+    endpoint: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    endpointPlaceholder: "https://api.deepseek.com",
+    modelPlaceholder: "deepseek-chat",
+    needsAuth: true,
+    authLabel: "API Key",
+  },
+  gateway: {
+    endpoint: "https://your-gateway.example.com",
+    model: "gpt-4",
+    endpointPlaceholder: "https://your-gateway.example.com/v1",
+    modelPlaceholder: "gpt-4",
+    needsAuth: true,
+    authLabel: "Authorization Header (full value)",
+  },
+};
+
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { llm, promptConfig, setPromptConfig } = useTree();
-  const [endpoint, setEndpoint] = useState(llm.getConfig()?.endpoint || "http://localhost:11434");
-  const [apiKey, setApiKey] = useState(llm.getConfig()?.apiKey || "");
-  const [model, setModel] = useState(llm.getConfig()?.model || "llama3");
-  const [provider, setProvider] = useState<"ollama" | "openai">("ollama");
+  const saved = llm.getConfig();
+  const [endpoint, setEndpoint] = useState(saved?.endpoint || "");
+  const [apiKey, setApiKey] = useState(saved?.apiKey || "");
+  const [authHeader, setAuthHeader] = useState(saved?.authHeader || "");
+  const [model, setModel] = useState(saved?.model || "");
+  const [provider, setProvider] = useState<Provider>(
+    !saved?.endpoint ? "ollama"
+      : saved.endpoint.includes("localhost") || saved.endpoint.includes("11434") ? "ollama"
+      : "openai"
+  );
   const [maxDepth, setMaxDepth] = useState(promptConfig.maxDepth);
   const [contextRadius, setContextRadius] = useState(promptConfig.contextRadius.join(", "));
   const [template, setTemplate] = useState(promptConfig.template);
 
+  const applyPreset = (p: Provider) => {
+    setProvider(p);
+    const preset = PRESETS[p];
+    setEndpoint(preset.endpoint);
+    setModel(preset.model);
+    setApiKey("");
+    setAuthHeader("");
+  };
+
   const handleSave = () => {
-    llm.configure({ endpoint, apiKey: apiKey || undefined, model }, provider);
+    llm.configure({
+      endpoint,
+      apiKey: provider !== "gateway" ? (apiKey || undefined) : undefined,
+      authHeader: provider === "gateway" ? (authHeader || undefined) : undefined,
+      model,
+    }, provider === "ollama" ? "ollama" : "openai");
     setPromptConfig({
       maxDepth,
       contextRadius: contextRadius.split(",").map((s) => parseInt(s.trim()) || 0),
@@ -28,6 +84,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setTemplate(DEFAULT_PROMPT_CONFIG.template);
   };
 
+  const preset = PRESETS[provider];
+
   return (
     <div className="settings-modal-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -35,19 +93,52 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>LLM Configuration</h3>
         <label>Provider</label>
-        <select value={provider} onChange={(e) => setProvider(e.target.value as any)}>
-          <option value="ollama">Ollama</option>
-          <option value="openai">OpenAI Compatible</option>
-        </select>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          {(["ollama", "openai", "gateway"] as Provider[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => applyPreset(p)}
+              style={{
+                flex: 1,
+                padding: "6px 8px",
+                fontSize: 12,
+                background: provider === p ? "#1a3a5c" : "#21262d",
+                border: `1px solid ${provider === p ? "#58a6ff" : "#30363d"}`,
+                borderRadius: 4,
+                color: provider === p ? "#58a6ff" : "#8b949e",
+                cursor: "pointer",
+              }}
+            >
+              {p === "ollama" ? "🖥️ Ollama" : p === "openai" ? "☁️ DeepSeek/OpenAI" : "🏢 Custom Gateway"}
+            </button>
+          ))}
+        </div>
 
         <label>Endpoint</label>
-        <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="http://localhost:11434" />
+        <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={preset.endpointPlaceholder} />
 
-        <label>API Key {provider === "ollama" ? "(optional)" : ""}</label>
-        <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
+        {preset.needsAuth && (
+          <>
+            <label>{preset.authLabel}</label>
+            {provider === "gateway" ? (
+              <input
+                value={authHeader}
+                onChange={(e) => setAuthHeader(e.target.value)}
+                placeholder="Bearer sk-xxx or ApiKey xxx or X-API-Key: xxx"
+              />
+            ) : (
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-..."
+              />
+            )}
+          </>
+        )}
 
         <label>Model</label>
-        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="llama3" />
+        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={preset.modelPlaceholder} />
 
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>Prompt Configuration</h3>
         <label>Max Ancestor Depth</label>

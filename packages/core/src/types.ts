@@ -35,6 +35,7 @@ export interface ExportBundle {
 export interface LLMConfig {
   endpoint: string;
   apiKey?: string;
+  authHeader?: string;
   model: string;
 }
 

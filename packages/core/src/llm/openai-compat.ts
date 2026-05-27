@@ -1,14 +1,28 @@
 import type { LLMConfig, AskOptions } from "../types";
 
+async function apiError(resp: Response): Promise<Error> {
+  try {
+    const body = await resp.clone().json();
+    const msg = body?.error?.message || body?.message || body?.detail || "";
+    if (msg) return new Error(`API error ${resp.status}: ${msg}`);
+  } catch {}
+  return new Error(`API error: ${resp.status} ${resp.statusText}`);
+}
+
 export async function askOpenAICompat(config: LLMConfig, options: AskOptions): Promise<string> {
-  const url = `${config.endpoint}/chat/completions`;
+  const base = config.endpoint.replace(/\/+$/, "");
+  const url = base.endsWith("/chat/completions") ? base : `${base}/chat/completions`;
+
+  const authValue = config.authHeader || (config.apiKey ? `Bearer ${config.apiKey}` : undefined);
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authValue) {
+    headers["Authorization"] = authValue;
+  }
 
   const resp = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-    },
+    headers,
     body: JSON.stringify({
       model: config.model,
       messages: [
@@ -28,11 +42,7 @@ export async function askOpenAICompat(config: LLMConfig, options: AskOptions): P
     signal: options.signal,
   });
 
-  if (!resp.ok) {
-    if (resp.status === 401 || resp.status === 403) throw new Error("AuthError: invalid API key");
-    if (resp.status === 429) throw new Error("RateLimitError");
-    throw new Error(`API error: ${resp.status}`);
-  }
+  if (!resp.ok) throw await apiError(resp);
 
   const json = await resp.json();
   return json.choices?.[0]?.message?.content ?? "";

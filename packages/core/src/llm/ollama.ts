@@ -1,7 +1,17 @@
 import type { LLMConfig, AskOptions } from "../types";
 
+async function apiError(resp: Response): Promise<Error> {
+  try {
+    const body = await resp.clone().json();
+    const msg = body?.error || body?.message || "";
+    if (msg) return new Error(`Ollama error ${resp.status}: ${msg}`);
+  } catch {}
+  return new Error(`Ollama error: ${resp.status} ${resp.statusText}`);
+}
+
 export async function askOllama(config: LLMConfig, options: AskOptions): Promise<string> {
-  const url = `${config.endpoint}/api/generate`;
+  const base = config.endpoint.replace(/\/+$/, "");
+  const url = `${base}/api/generate`;
 
   const resp = await fetch(url, {
     method: "POST",
@@ -17,11 +27,7 @@ export async function askOllama(config: LLMConfig, options: AskOptions): Promise
     signal: options.signal,
   });
 
-  if (!resp.ok) {
-    if (resp.status === 401 || resp.status === 403) throw new Error("AuthError: check API access");
-    if (resp.status === 429) throw new Error("RateLimitError");
-    throw new Error(`Ollama error: ${resp.status}`);
-  }
+  if (!resp.ok) throw await apiError(resp);
 
   const json = await resp.json();
   return json.response ?? json.message ?? "";
