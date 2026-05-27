@@ -7,7 +7,7 @@ export function FloatingAskButton({ text, top, left, onAsk }: Props) {
     <div
       className="floating-ask"
       style={{ top: `${top}px`, left: `${left}px` }}
-      onClick={(e) => { e.stopPropagation(); onAsk(); }}
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onAsk(); }}
     >
       🔍 Ask about "{displayText}"
     </div>

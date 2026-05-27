@@ -57,11 +57,16 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
       try {
         const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
         const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
-        setSelectionRange({ text, start: Math.min(start, end), end: Math.max(start, end) });
-      } catch {
+        const sr = { text, start: Math.min(start, end), end: Math.max(start, end) };
+        console.log("[MarkdownPane] setSelectionRange (Range API)", sr);
+        setSelectionRange(sr);
+      } catch (err) {
+        console.log("[MarkdownPane] getTextOffset failed, fallback to indexOf:", err);
         const t = containerRef.current?.textContent || "";
         const s = t.indexOf(text);
-        setSelectionRange({ text, start: s, end: s >= 0 ? s + text.length : 0 });
+        const sr = { text, start: s, end: s >= 0 ? s + text.length : 0 };
+        console.log("[MarkdownPane] setSelectionRange (indexOf fallback)", sr, "textContent.length:", t.length);
+        setSelectionRange(sr);
       }
     }
   }, []);
@@ -72,11 +77,15 @@ export function MarkdownPane({ content, onTextSelected }: Props) {
   }, [handleSelection]);
 
   const handleAsk = () => {
+    console.log("[MarkdownPane] handleAsk called, selectionRange:", selectionRange);
     if (selectionRange && selectionRange.start >= 0) {
+      console.log("[MarkdownPane] calling onTextSelected", selectionRange.text, selectionRange.start, selectionRange.end);
       onTextSelected(selectionRange.text, selectionRange.start, selectionRange.end);
       setFloatingPos(null);
       setSelectionRange(null);
       window.getSelection()?.removeAllRanges();
+    } else {
+      console.log("[MarkdownPane] handleAsk SKIPPED — selectionRange null or start < 0");
     }
   };
 

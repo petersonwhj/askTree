@@ -81,7 +81,7 @@ describe("MarkdownPane", () => {
     const floatingBtn = container.querySelector(".floating-ask");
     expect(floatingBtn).toBeTruthy();
 
-    fireEvent.click(floatingBtn!);
+    fireEvent.mouseDown(floatingBtn!);
 
     expect(onTextSelected).toHaveBeenCalledTimes(1);
     expect(onTextSelected).toHaveBeenCalledWith("Hello", expect.any(Number), expect.any(Number));

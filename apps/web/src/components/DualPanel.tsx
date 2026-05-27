@@ -132,6 +132,7 @@ export function DualPanel() {
   };
 
   const handleTextSelected = (text: string, start: number, end: number) => {
+    console.log("[DualPanel] handleTextSelected called", { text, start, end, currentNodeId: currentNode?.id });
     if (!currentNode) return;
     setSelectedText({ text, start, end, nodeId: currentNode.id });
   };
