@@ -155,15 +155,11 @@ export function DualPanel() {
         renderPrompt(slices, question, promptConfig.template);
         const answer = await llm.ask({ question, contextSlices: slices });
         await store.updateContent(childId, answer);
-        if (childId === currentNode?.id || childId === activePath[activePath.length - 1]?.id) {
-          setChildContent(answer);
-        }
+        setChildContent(answer);
       } catch (e) {
         const errMsg = `**Error:** ${(e as Error).message}\n\n> ${question}`;
         await store.updateContent(childId, errMsg);
-        if (childId === activePath[activePath.length - 1]?.id) {
-          setChildContent(errMsg);
-        }
+        setChildContent(errMsg);
         setError((e as Error).message);
       } finally {
         setLoadingNodes((prev) => {
