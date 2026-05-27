@@ -1,9 +1,27 @@
+import { useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import type { Node } from "@asktree/core";
 
 export function TreeSidebar() {
-  const { store, activePath, focusNode } = useTree();
+  const { store, activePath, focusNode, resetTree } = useTree();
   const currentId = activePath[activePath.length - 1]?.id;
+  const root = (() => { try { return store.getRoot(); } catch { return null; } })();
+
+  const handleDelete = useCallback((node: Node, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isRoot = root?.id === node.id;
+    const msg = isRoot
+      ? "Delete the entire tree? This cannot be undone."
+      : `Delete "${node.title.slice(0, 40)}" and all its sub-nodes?`;
+    if (!window.confirm(msg)) return;
+
+    if (isRoot) {
+      resetTree();
+    } else {
+      store.removeNode(node.id).catch(() => {});
+    }
+  }, [root, resetTree, store]);
 
   const renderNode = (node: Node, depth: number): React.ReactNode => {
     const isActive = node.id === currentId;
@@ -15,6 +33,7 @@ export function TreeSidebar() {
           className={`tree-node ${isActive ? "active" : ""}`}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
           onClick={() => focusNode(node.id)}
+          onContextMenu={(e) => handleDelete(node, e)}
         >
           <span className="status-dot" style={{ backgroundColor: statusColors[node.status] }} />
           {node.title.slice(0, 30)}
@@ -27,10 +46,6 @@ export function TreeSidebar() {
     );
   };
 
-  let root = null;
-  try {
-    root = store.getRoot();
-  } catch {}
   if (!root) return null;
 
   return (
