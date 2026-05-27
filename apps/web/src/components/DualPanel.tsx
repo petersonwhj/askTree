@@ -203,11 +203,18 @@ export function DualPanel() {
             {parentNode.type === "article" ? "📄" : "❓"} {parentNode.title.slice(0, 50)}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {activePath.length > 1 && (
+            {(activePath.length > 1 || parentNode.parentId) && (
               <button
-                onClick={() => navigateUp()}
+                onClick={() => {
+                  if (activePath.length > 1) {
+                    navigateUp();
+                  } else {
+                    const p = store.getNode(parentNode.parentId!);
+                    if (p) navigateTo(p.id);
+                  }
+                }}
                 className="shift-btn"
-                title="Shift left → right (go up one level)"
+                title="Shift left → right"
               >
                 →
               </button>
