@@ -203,6 +203,15 @@ export function DualPanel() {
             {parentNode.type === "article" ? "📄" : "❓"} {parentNode.title.slice(0, 50)}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {activePath.length > 1 && (
+              <button
+                onClick={() => navigateUp()}
+                className="shift-btn"
+                title="Shift left → right (go up one level)"
+              >
+                →
+              </button>
+            )}
             <input
               ref={fileInputRef}
               type="file"

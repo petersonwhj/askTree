@@ -103,6 +103,13 @@ body {
 }
 .close-panel-btn:hover { color: #f85149; border-color: #f85149; }
 
+.shift-btn {
+  font-size: 14px; background: none; border: 1px solid #30363d;
+  border-radius: 4px; color: #8b949e; padding: 1px 8px; cursor: pointer;
+  line-height: 1;
+}
+.shift-btn:hover { color: #58a6ff; border-color: #58a6ff; }
+
 .markdown-pane ul, .markdown-pane ol { padding-left: 24px; margin: 8px 0; }
 .markdown-pane li { margin: 4px 0; }
 .markdown-pane li > ul, .markdown-pane li > ol { margin: 4px 0; }
@@ -138,7 +145,7 @@ body {
 }
 
 .asktree-highlight {
-  background: #e2b71440; color: inherit; padding: 0 2px; border-radius: 2px;
+  background: #f0883e50; color: inherit; padding: 0 2px; border-radius: 2px;
 }
 
 .markdown-pane :first-child { margin-top: 0; }
