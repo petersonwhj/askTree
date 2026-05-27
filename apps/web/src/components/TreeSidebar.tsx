@@ -2,7 +2,7 @@ import { useTree } from "../hooks/useTree";
 import type { Node } from "@asktree/core";
 
 export function TreeSidebar() {
-  const { store, activePath, navigateTo } = useTree();
+  const { store, activePath, focusNode } = useTree();
   const currentId = activePath[activePath.length - 1]?.id;
 
   const renderNode = (node: Node, depth: number): React.ReactNode => {
@@ -14,7 +14,7 @@ export function TreeSidebar() {
         <div
           className={`tree-node ${isActive ? "active" : ""}`}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
-          onClick={() => navigateTo(node.id)}
+          onClick={() => focusNode(node.id)}
         >
           <span className="status-dot" style={{ backgroundColor: statusColors[node.status] }} />
           {node.title.slice(0, 30)}

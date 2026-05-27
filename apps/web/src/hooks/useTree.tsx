@@ -8,6 +8,7 @@ interface TreeContextValue {
   activePath: Node[];
   navigateTo: (nodeId: string) => void;
   navigateUp: () => void;
+  focusNode: (nodeId: string) => void;
   createRootTree: (content: string, title: string) => Promise<void>;
   resetTree: () => Promise<void>;
   addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
@@ -28,7 +29,17 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   const [activePath, setActivePath] = useState<Node[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedText, setSelectedText] = useState<TreeContextValue["selectedText"]>(null);
-  const [promptConfig, setPromptConfig] = useState<PromptConfig>(DEFAULT_PROMPT_CONFIG);
+  const [promptConfig, setPromptConfig] = useState<PromptConfig>(() => {
+    try {
+      const saved = localStorage.getItem("asktree_prompt_config");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_PROMPT_CONFIG;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("asktree_prompt_config", JSON.stringify(promptConfig));
+  }, [promptConfig]);
 
   useEffect(() => {
     (async () => {
@@ -45,8 +56,23 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("asktree_llm_config");
+      if (saved) {
+        const { config, provider } = JSON.parse(saved);
+        if (config) llmRef.current.configure(config, provider || "openai");
+      }
+    } catch {}
+  }, []);
+
   const navigateTo = useCallback((nodeId: string) => {
     setActivePath(storeRef.current.getPath(nodeId));
+  }, []);
+
+  const focusNode = useCallback((nodeId: string) => {
+    const node = storeRef.current.getNode(nodeId);
+    if (node) setActivePath([node]);
   }, []);
 
   const navigateUp = useCallback(() => {
@@ -88,7 +114,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <TreeContext.Provider value={{
-        store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp,
+        store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
         createRootTree, resetTree, addChildNode, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
     }}>

@@ -8,7 +8,7 @@ import type { Node } from "@asktree/core";
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, promptConfig, createRootTree, resetTree, navigateTo,
+    addChildNode, promptConfig, createRootTree, resetTree, navigateTo, focusNode,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -224,14 +224,23 @@ export function DualPanel() {
               <span className="node-type">
                 ❓ {currentNode.title.slice(0, 50)}
               </span>
-              <select
-                value={currentNode.status}
-                onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
-                className="status-select"
-              >
-                <option value="question">question</option>
-                <option value="resolved">resolved</option>
-              </select>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  onClick={() => focusNode(parentNode.id)}
+                  className="close-panel-btn"
+                  title="Close answer"
+                >
+                  ✕
+                </button>
+                <select
+                  value={currentNode.status}
+                  onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
+                  className="status-select"
+                >
+                  <option value="question">question</option>
+                  <option value="resolved">resolved</option>
+                </select>
+              </div>
             </div>
             <MarkdownPane
               content={childContent}

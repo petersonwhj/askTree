@@ -64,12 +64,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleSave = () => {
-    llm.configure({
+    const config = {
       endpoint,
       apiKey: provider !== "gateway" ? (apiKey || undefined) : undefined,
       authHeader: provider === "gateway" ? (authHeader || undefined) : undefined,
       model,
-    }, provider === "ollama" ? "ollama" : "openai");
+    };
+    const llmProvider = provider === "ollama" ? "ollama" : "openai";
+    llm.configure(config, llmProvider);
+    localStorage.setItem("asktree_llm_config", JSON.stringify({ config, provider: llmProvider }));
     setPromptConfig({
       maxDepth,
       contextRadius: contextRadius.split(",").map((s) => parseInt(s.trim()) || 0),

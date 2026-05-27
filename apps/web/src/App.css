@@ -84,6 +84,13 @@ body {
 }
 .load-file-btn:hover { background: #1a3a5c; }
 
+.close-panel-btn {
+  font-size: 12px; background: none; border: 1px solid #30363d;
+  border-radius: 4px; color: #8b949e; padding: 1px 6px; cursor: pointer;
+  line-height: 1;
+}
+.close-panel-btn:hover { color: #f85149; border-color: #f85149; }
+
 .markdown-pane ul, .markdown-pane ol { padding-left: 24px; margin: 8px 0; }
 .markdown-pane li { margin: 4px 0; }
 .markdown-pane li > ul, .markdown-pane li > ol { margin: 4px 0; }
