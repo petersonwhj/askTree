@@ -19,15 +19,25 @@ export function DualPanel() {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const currentNode = activePath[activePath.length - 1];
-  const [currentNodeContent, setCurrentNodeContent] = useState<string | null>(null);
+  const parentNode = activePath.length >= 2 ? activePath[activePath.length - 2] : currentNode;
+  const [parentContent, setParentContent] = useState<string | null>(null);
+  const [childContent, setChildContent] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentNode) {
-      store.getContent(currentNode.id).then(setCurrentNodeContent).catch(() => setCurrentNodeContent(""));
+    if (parentNode) {
+      store.getContent(parentNode.id).then(setParentContent).catch(() => setParentContent(""));
     } else {
-      setCurrentNodeContent(null);
+      setParentContent(null);
     }
-  }, [currentNode, store]);
+  }, [parentNode, store]);
+
+  useEffect(() => {
+    if (currentNode && currentNode.id !== parentNode?.id) {
+      store.getContent(currentNode.id).then(setChildContent).catch(() => setChildContent(""));
+    } else {
+      setChildContent(null);
+    }
+  }, [currentNode, parentNode, store]);
 
   const handleFileLoad = useCallback(async (file: File) => {
     try {
@@ -131,17 +141,17 @@ export function DualPanel() {
     }
   };
 
-  const handleTextSelected = (text: string, start: number, end: number) => {
-    if (!currentNode) return;
-    setSelectedText({ text, start, end, nodeId: currentNode.id });
+  const handleTextSelected = (text: string, start: number, end: number, nodeId: string) => {
+    setSelectedText({ text, start, end, nodeId });
   };
 
   return (
     <div className="dual-panel">
+      {/* Left: parent / root */}
       <div className="panel">
         <div className="panel-header">
           <span className="node-type">
-            {currentNode.type === "article" ? "📄" : "❓"} {currentNode.title.slice(0, 50)}
+            {parentNode.type === "article" ? "📄" : "❓"} {parentNode.title.slice(0, 50)}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input
@@ -154,15 +164,10 @@ export function DualPanel() {
                 if (file) handleFileLoad(file);
               }}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="load-file-btn"
-            >
-              Load File
-            </button>
+            <button onClick={() => fileInputRef.current?.click()} className="load-file-btn">Load File</button>
             <select
-              value={currentNode.status}
-              onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
+              value={parentNode.status}
+              onChange={(e) => { store.updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}
               className="status-select"
             >
               <option value="question">question</option>
@@ -170,19 +175,42 @@ export function DualPanel() {
             </select>
           </div>
         </div>
-        {currentNodeContent !== null && (
+        {parentContent !== null && (
           <MarkdownPane
-            content={currentNodeContent}
-            onTextSelected={handleTextSelected}
+            content={parentContent}
+            onTextSelected={(text, start, end) => handleTextSelected(text, start, end, parentNode.id)}
           />
         )}
       </div>
 
+      {/* Right: child / answer */}
       <div className="panel">
-        <div className="empty-state" style={{ flex: 1 }}>
-          <p>Select text in the article and click the floating button to ask a question.</p>
-          <p style={{ fontSize: 12, color: "#484f58" }}>Or use the input bar below for free-form questions.</p>
-        </div>
+        {childContent !== null ? (
+          <>
+            <div className="panel-header">
+              <span className="node-type">
+                ❓ {currentNode.title.slice(0, 50)}
+              </span>
+              <select
+                value={currentNode.status}
+                onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
+                className="status-select"
+              >
+                <option value="question">question</option>
+                <option value="resolved">resolved</option>
+              </select>
+            </div>
+            <MarkdownPane
+              content={childContent}
+              onTextSelected={(text, start, end) => handleTextSelected(text, start, end, currentNode.id)}
+            />
+          </>
+        ) : (
+          <div className="empty-state" style={{ flex: 1 }}>
+            <p>Select text in the article and click the floating button to ask a question.</p>
+            <p style={{ fontSize: 12, color: "#484f58" }}>Or use the input bar below for free-form questions.</p>
+          </div>
+        )}
 
         {error && (
           <div className="error-banner">
