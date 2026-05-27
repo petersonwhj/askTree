@@ -37,11 +37,15 @@
 | 层 | 技术 | 说明 |
 |---|---|---|
 | Core | TypeScript (单 npm 包) | 零 UI 依赖，树管理、LLM 通信、存储接口 |
-| UI | React | 三平台共用组件库 |
-| Storage (Web) | IndexedDB | key-value 存 tree.json + 各 .md 文件 |
-| Storage (VS Code) | 工作区文件系统 | `.asktree/` 目录读写 |
-| Storage (Chrome) | IndexedDB | 同 Web |
-| LLM | OpenAI 兼容 + Ollama 原生 | 接口抽象，支持用户自定义 endpoint |
+| UI | React 18 | 三平台共用组件库 |
+| Markdown | markdown-it + KaTeX | 渲染 Markdown + LaTeX 数学公式 |
+| Sanitize | DOMPurify | XSS 防护，支持 MathML |
+| Storage (Web) | IndexedDB | key-value 存 tree meta + 各 node content |
+| Storage (VS Code) | 工作区文件系统 | `.asktree/` 目录读写（规划中） |
+| Storage (Chrome) | IndexedDB | 同 Web（规划中） |
+| LLM | OpenAI 兼容 + Ollama 原生 + Custom Gateway | 接口抽象，支持 DeepSeek / 自定义 endpoint |
+| Build | pnpm monorepo, tsup, Vite | workspace 管理，Core 双格式输出 |
+| Test | Vitest + Testing Library | 32+ 单测 |
 
 ---
 
@@ -70,10 +74,10 @@ Edge {
 }
 ```
 
-**存储分离**：
-- `tree.json` — 元数据（Node + Edge 结构树）
-- `node_<uuid>.md` — 每篇文章独立文件
-- 导出 = .zip（tree.json + 所有 .md），导入 = 拖入 .zip 解包
+**存储方式（已实现）**：
+- 元数据：`tree_meta` → IndexedDB object store
+- 节点内容：`node_contents` → IndexedDB object store（nodeId → markdown string）
+- 导出/导入：JSON bundle（tree.json + 所有 node content）
 
 ---
 
@@ -114,15 +118,25 @@ LLMService
 - **顶部路径条**：`📄 群论简介 → ❓ 代数结构？ → ❓ "环" 是什么？`，点击任意节点直接跳转
 - **左侧树形导航（可折叠）**：展示完整树结构，当前节点高亮，点击跳转
 
-### 交互流程
-1. 用户在任意面板中选中文字 → 仅高亮，不弹出干扰
-2. 选中文字下方显示浮动按钮 `🔍 Ask about "xxx"`（Ctrl+Q 快捷键）
-3. 点击/快捷键 → 选中文字自动填入右侧底部输入框
-4. 无选中时也可在右侧输入框自由提问
-5. LLM 回答显示在右侧面板上半部分
-6. 在右侧回答中继续选中文字提问 → 面板左移，新回答在右面显示
-7. 右侧面板关闭 → 链路右移，恢复父级视图
-8. 点击之前高亮过的文字 → 右侧立即显示对应的回答
+### 交互流程（已实现）
+
+1. 用户在任意面板中选中文字 → 下方出现浮动按钮 `🔍 Ask about "xxx"`
+2. 点击浮动按钮（onMouseDown）→ 选中文字自动填入右侧底部，badge 显示引用
+3. 无选中时也可在右侧输入框自由提问（Free ask）
+4. **提问左面文章** → 答案出现在右面，左面保持不变
+5. **提问右面答案** → 右面内容搬至左面，新答案显示在右面（面板左移）
+6. 点击顶部路径条（BreadcrumbBar）→ 跳转至任意祖先节点，面板同步更新
+7. 点击左侧树形导航 → 跳转至任意节点
+8. Enter 发送提问，Shift+Enter 换行
+9. 输入框自动增高（2 行起步，最高 10 行）
+
+### 待实现
+
+- [ ] 右侧面板关闭 → 链路右移，恢复父级视图（navigateUp 已有，缺少 UI 入口）
+- [ ] 点击之前高亮过的文字 → 右侧立即显示对应回答
+- [ ] 删除节点（级联删除子树）
+- [ ] 节点间连线可视化
+- [ ] 快捷键 Ctrl+Q 触发 Ask
 
 ### 提问触发
 - **选中 + 浮动按钮**：快捷方式，自动填入上下文
@@ -138,16 +152,18 @@ LLMService
 
 ## 标注汇总
 
-- [ ] 水平平铺 vs 双向面板 → **双向面板（方案 B）**
-- [ ] 提问输入位置 → **右侧栏顶部 + 底部输入常驻**
-- [ ] 选中触发方式 → **浮动按钮 + 右侧常驻输入框结合**
-- [ ] 导航方式 → **顶部路径条 + 左侧可折叠树形导航（方案 B）**
-- [ ] 数据存储 → **tree.json + node_<id>.md 分离存储**
-- [ ] 后端 → **纯前端，不需要**
-- [ ] Core 实现 → **TypeScript 单包**
-- [ ] UI 框架 → **React**
-- [ ] 发布路线 → **Web → VS Code → Chrome**
-- [ ] 项目名 → **AskTree**
+- [x] 水平平铺 vs 双向面板 → **双向面板（方案 B）**
+- [x] 提问输入位置 → **右侧栏底部输入常驻**
+- [x] 选中触发方式 → **浮动按钮 + 右侧常驻输入框结合**
+- [x] 导航方式 → **顶部路径条 + 左侧可折叠树形导航（方案 B）**
+- [x] 数据存储 → **IndexedDB key-value**
+- [x] 后端 → **纯前端，不需要**
+- [x] Core 实现 → **TypeScript 单包**
+- [x] UI 框架 → **React 18**
+- [x] 项目名 → **AskTree**
+- [x] 发布路线 → **Web (GitHub Pages) 已上线**
+- [ ] VS Code 插件 — 规划中
+- [ ] Chrome 扩展 — 规划中
 
 ---
 
@@ -208,42 +224,50 @@ User:
 ## React 组件树
 
 ```
-<App>                          — TreeStore context + LLM config
-├── <AppHeader>                — Import/Export/Settings buttons
-├── <AppBody>                  — 三栏布局
-│   ├── <TreeSidebar>          — 左侧可折叠树形导航
-│   └── <MainArea>
-│       ├── <BreadcrumbBar>    — 顶部路径条
-│       └── <DualPanel>        — 左右分屏核心交互
-│           ├── <MarkdownPane> — 渲染 MD + 文字选中 + 浮动按钮
-│           ├── <MarkdownPane> — 右栏也渲染 MD（相同组件）
-│           └── <QuestionInputBar> — 底部常驻提问输入
-└── <SettingsModal>            — LLM 配置 + Prompt 模板
+<ErrorBoundary>                  — Crash 保护，显示错误信息
+└── <App>                        — TreeStore context + LLM config
+    ├── <AppHeader>              — Import/Export/Settings buttons
+    ├── <AppBody>                — 三栏布局
+    │   ├── <TreeSidebar>        — 左侧可折叠树形导航
+    │   └── <MainArea>
+    │       ├── <BreadcrumbBar>  — 顶部路径条
+    │       └── <DualPanel>      — 左右分屏核心交互
+    │           ├── <MarkdownPane> (左) — 父节点文章，支持选中+浮动按钮
+    │           ├── <MarkdownPane> (右) — 子节点答案，支持选中+浮动按钮
+    │           └── <QuestionInputBar> — 右栏底部多行输入（Enter 发送）
+    └── <SettingsModal>          — LLM 配置 (Ollama/DeepSeek/Gateway) + Prompt 模板
 ```
 
 ### 数据流向
 
 ```
 User Action         →  React State          →  TreeStore / LLM
-选中文字             →  setSelectedText()     →  (保留在 state)
-点击浮动按钮          →  pendingQuestion      →  (填入输入框)
-发送提问             →  setLoading(true)      →  LLMService.ask() + TreeStore.addChild()
-收到回答             ←  setAnswer(md)         ←  LLM 返回
-点击路径条           →  setActivePath()       ←  TreeStore.getPath()
+选中文字             →  setSelectedText()     →  (保留在 context state)
+点击浮动按钮          →  selectedText context  →  右侧 badge 显示 + placeholder 更新
+发送提问             →  setIsAsking(true)     →  LLMService.ask() → addChildNode(questionedNodeId, …)
+收到回答             →  activePath 新增子节点  →  右侧面板显示答案
+点击路径条/侧栏       →  navigateTo(nodeId)    →  setActivePath() ← store.getPath()
+加载新文件            →  resetTree() + createRootTree() → IndexedDB 清空 + 写入
 ```
 
-## 组件状态
+## 组件状态（TreeContext）
 
 | State | Type | 说明 |
 |-------|------|------|
 | `activePath` | Node[] | 当前路径节点链（根→当前） |
-| `selectedText` | {text, start, end, nodeId} | 当前选中的文字 |
-| `pendingQuestion` | string | 待发送的问题 |
-| `answerContent` | string | LLM 流式回答 |
-| `tree` | TreeStore | 整个树（context 共享） |
-| `llmConfig` | LLMConfig | LLM 连接配置 |
+| `selectedText` | {text, start, end, nodeId} \| null | 当前选中的文字及所属节点 |
+| `promptConfig` | PromptConfig | Prompt 模板 + context 参数 |
+| `isLoading` | boolean | 初始加载状态 |
+
+### 本地 State（DualPanel）
+| State | Type | 说明 |
+|-------|------|------|
+| `parentContent` | string \| null | 左侧父节点 Markdown 内容 |
+| `childContent` | string \| null | 右侧子节点 Markdown 内容（无子节点时为 null） |
+| `isAsking` | boolean | 正在等待 LLM 回答 |
+| `error` | string \| null | 错误消息 |
 
 ## 文档索引
 
-- [设计规范](./docs/superpowers/specs/2026-05-26-asktree-design.md)
+- [英文 README](./README.md)
 - [实现计划](./docs/superpowers/plans/2026-05-26-asktree-plan.md)

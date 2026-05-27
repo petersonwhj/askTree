@@ -121,12 +121,13 @@ export function DualPanel() {
   const handleSendQuestion = async (question: string) => {
     setError(null);
     setIsAsking(true);
+    const questionedNodeId = selectedText?.nodeId || currentNode.id;
     try {
-      const slices = await collectContext(currentNode.id, "", store, promptConfig);
+      const slices = await collectContext(questionedNodeId, "", store, promptConfig);
       renderPrompt(slices, question, promptConfig.template);
       const answer = await llm.ask({ question, contextSlices: slices });
 
-      await addChildNode(currentNode.id, {
+      await addChildNode(questionedNodeId, {
         selectedText: selectedText?.text || "",
         startPos: selectedText?.start || 0,
         endPos: selectedText?.end || 0,
