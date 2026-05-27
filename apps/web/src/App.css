@@ -63,8 +63,14 @@ body {
 
 .dual-panel { display: flex; flex: 1; overflow: hidden; }
 
+.panel-divider {
+  width: 4px; cursor: col-resize; background: #30363d;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.panel-divider:hover { background: #58a6ff; }
+
 .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.panel:first-child { border-right: 1px solid #30363d; }
+.panel:first-child { border-right: none; }
 
 .panel-header {
   padding: 8px 12px; font-size: 12px; border-bottom: 1px solid #21262d;

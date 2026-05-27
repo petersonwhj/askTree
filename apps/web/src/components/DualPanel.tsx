@@ -13,6 +13,7 @@ export function DualPanel() {
 
   const [error, setError] = useState<string | null>(null);
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const [splitRatio, setSplitRatio] = useState(50);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -178,10 +179,29 @@ export function DualPanel() {
     setSelectedText({ text, start, end, nodeId });
   };
 
+  const handleDividerDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startRatio = splitRatio;
+    const container = (e.target as HTMLElement).parentElement;
+    const containerWidth = container?.clientWidth || window.innerWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const newRatio = Math.min(80, Math.max(20, startRatio + (dx / containerWidth) * 100));
+      setSplitRatio(newRatio);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [splitRatio]);
+
   return (
     <div className="dual-panel">
-      {/* Left: parent / root */}
-      <div className="panel">
+      <div className="panel" style={{ width: `${splitRatio}%`, flex: "none" }}>
         <div className="panel-header">
           <span className="node-type">
             {parentNode.type === "article" ? "📄" : "❓"} {parentNode.title.slice(0, 50)}
@@ -216,8 +236,10 @@ export function DualPanel() {
         )}
       </div>
 
+      <div className="panel-divider" onMouseDown={handleDividerDown} />
+
       {/* Right: child / answer */}
-      <div className="panel">
+      <div className="panel" style={{ width: `${100 - splitRatio}%`, flex: "none" }}>
         {childContent !== null ? (
           <>
             <div className="panel-header">
