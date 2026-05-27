@@ -11,8 +11,7 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
 
   const contextHtml = useMemo(() => {
     if (!contextText) return null;
-    const raw = renderMarkdown(contextText);
-    return raw.replace(/^<p>|<\/p>\n?$/g, "");
+    return renderMarkdown(contextText);
   }, [contextText]);
 
   useEffect(() => {
@@ -42,9 +41,9 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
   return (
     <div className="question-input-bar">
       {contextHtml ? (
-        <span className="context-badge" title={contextText || ""}>
-          <span dangerouslySetInnerHTML={{ __html: contextHtml }} />
-        </span>
+        <div className="context-badge" title={contextText || ""}>
+          <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
+        </div>
       ) : (
         <span className="context-label">Free ask</span>
       )}

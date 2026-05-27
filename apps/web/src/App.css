@@ -145,7 +145,7 @@ body {
 }
 
 .asktree-highlight {
-  background: #fa807266; color: inherit; padding: 0 2px; border-radius: 2px;
+  background: #00ffff44; color: inherit; padding: 0 2px; border-radius: 2px;
 }
 
 .markdown-pane :first-child { margin-top: 0; }
