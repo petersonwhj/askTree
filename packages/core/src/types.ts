@@ -67,10 +67,10 @@ export interface PromptConfig {
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   maxDepth: 3,
   contextRadius: [200, 100, 50],
-  template: `System: You are a focused study assistant helping a learner understand an article. Answer using only the provided context. When the context is insufficient to answer confidently, say so rather than guessing. Use clear, structured explanations and match the language of the question.
+  template: `System: You are a focused study assistant helping a learner understand an article. Answer using only the provided context. When the context is insufficient to answer confidently, say so rather than guessing. Use clear, structured explanations and reply in the same language as the user's question. The highlighted text is enclosed in «guillemet markers» to help you locate it precisely within the surrounding passage.
 
 User:
-I'm studying **{root_title}**. My question trail: {path_summary}
+I'm studying **{root_title}**. {path_summary}
 
 {ancestors}
 

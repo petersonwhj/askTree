@@ -18,7 +18,7 @@ function cutSurrounding(content: string, startPos: number, endPos: number, radiu
   }
 
   const before = content.slice(left, startPos);
-  const selected = content.slice(startPos, endPos);
+  const selected = "«" + content.slice(startPos, endPos) + "»";
   const after = content.slice(endPos, right);
 
   const prefix = left > 0 ? "…" : "";
@@ -100,7 +100,10 @@ export function renderPrompt(
     .replaceAll("{root_title}", slices[slices.length - 1]?.nodeTitle || "")
     .replaceAll("{full_article}", "")
     // slices are leaf-first (depth 0 → maxDepth); reverse so path reads root → current
-    .replaceAll("{path_summary}", [...slices].reverse().map((s) => s.nodeTitle).join(" → "));
+    .replaceAll("{path_summary}",
+      slices.length <= 1
+        ? "I'm reading this article for the first time."
+        : "My reading trail: " + [...slices].reverse().map((s) => s.nodeTitle).join(" → "));
 
   const parts = text.split("User:");
   const system = parts[0]?.replace(/^System:\s*/, "").trim() || "";
