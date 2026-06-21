@@ -228,7 +228,9 @@ export function DualPanel() {
               currentNode.id !== parentNode.id
                 ? (() => {
                     const edge = parentNode.children.find(e => e.targetNodeId === currentNode.id);
-                    return edge && edge.startPos >= 0 ? { start: edge.startPos, end: edge.endPos } : null;
+                    return edge && edge.startPos >= 0
+                      ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
+                      : null;
                   })()
                 : null
             }

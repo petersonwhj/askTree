@@ -5,7 +5,7 @@ import { FloatingAskButton } from "./FloatingAskButton";
 interface Props {
   content: string;
   highlights?: Array<{ startPos: number; endPos: number; nodeId: string }>;
-  highlight?: { start: number; end: number } | null;
+  highlight?: { start: number; end: number; text?: string } | null;
   onTextSelected: (text: string, startPos: number, endPos: number) => void;
 }
 
@@ -98,6 +98,26 @@ function renderedToRawOffset(
   return { start: est, end: est + selectedText.length };
 }
 
+/**
+ * Map a raw-markdown offset to the corresponding rendered-text offset
+ * (the reverse of renderedToRawOffset). Used when applying highlights
+ * that were stored as raw offsets (#13) to the rendered DOM.
+ */
+function rawToRenderedOffset(
+  rawContent: string,
+  renderedText: string,
+  rawOffset: number,
+  selectedText: string,
+): number {
+  const renderedIdx = findClosestOccurrence(renderedText, selectedText, rawContent.length, rawOffset);
+  if (renderedIdx >= 0) {
+    return renderedIdx;
+  }
+  // Fallback: proportional estimate
+  const ratio = rawContent.length > 0 ? rawOffset / rawContent.length : 0;
+  return Math.round(renderedText.length * ratio);
+}
+
 export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -108,7 +128,22 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
     if (contentRef.current) {
       contentRef.current.innerHTML = renderMarkdown(content);
       if (highlight && highlight.start >= 0 && highlight.end > highlight.start) {
-        applyHighlight(contentRef.current, highlight.start, highlight.end);
+        let displayStart = highlight.start;
+        let displayEnd = highlight.end;
+
+        // If selection text is available, map raw offset → rendered offset
+        // so the highlight lands on the correct rendered text position
+        if (highlight.text) {
+          const renderedText = contentRef.current.textContent || "";
+          displayStart = rawToRenderedOffset(
+            content, renderedText, highlight.start, highlight.text,
+          );
+          displayEnd = displayStart + highlight.text.length;
+        }
+
+        if (displayStart >= 0 && displayEnd > displayStart) {
+          applyHighlight(contentRef.current, displayStart, displayEnd);
+        }
       }
     }
   }, [content, highlight]);
