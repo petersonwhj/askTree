@@ -101,12 +101,15 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
   return (
     <>
       <header className="app-header">
-        <button onClick={onToggleSidebar}>☰</button>
-        <h1>AskTree</h1>
-        <button onClick={handleReset} disabled={!hasTree} title="Clear current tree">🧹</button>
-        <button onClick={() => fileRef.current?.click()} title="Load markdown file">📂</button>
-        <input
-          ref={fileRef}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={onToggleSidebar}>☰</button>
+          <h1>AskTree</h1>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={handleReset} disabled={!hasTree} title="Clear current tree">🧹</button>
+          <button onClick={() => fileRef.current?.click()} title="Load markdown file">📂</button>
+          <input
+            ref={fileRef}
           type="file"
           accept=".md,.markdown,.txt"
           style={{ display: "none" }}
@@ -116,6 +119,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
         <button onClick={() => importRef.current?.click()}>Import</button>
         <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
         <button onClick={onSettings}>Settings</button>
+        </div>
       </header>
       {confirmAction && (
         <ConfirmModal
