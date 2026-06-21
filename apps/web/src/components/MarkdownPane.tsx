@@ -49,6 +49,7 @@ function getTextOffset(container: Node, targetNode: Node, targetOffset: number):
  * Find the occurrence of `needle` in `haystack` whose proportional position
  * is closest to `refPos / refLen`. Used to map between rendered and raw
  * coordinate systems.
+ * Returns -1 when no exact match is found (e.g. math/formatting chars).
  */
 function findClosestOccurrence(
   haystack: string,
@@ -78,30 +79,80 @@ function findClosestOccurrence(
 }
 
 /**
- * Map a rendered-text offset to the corresponding raw-markdown offset
- * by locating the selected text in the raw source, using proportional
- * position as a tie-breaker when the text appears multiple times.
+ * Strip markdown formatting characters that differ between raw source and
+ * rendered DOM text (math delimiters, subscripts, bold/italic markers,
+ * LaTeX commands, braces).  The returned `map` array gives the original
+ * position for each normalized character — `map[i]` = offset in `original`.
+ */
+const RE_FORMATTING = /[$_*\\{}`]/g;
+function normalizeForMatching(original: string): { text: string; map: number[] } {
+  const chars: string[] = [];
+  const map: number[] = [];
+  for (let i = 0; i < original.length; i++) {
+    if (!RE_FORMATTING.test(original[i])) {
+      chars.push(original[i]);
+      map.push(i);
+    }
+  }
+  return { text: chars.join(""), map };
+}
+
+/**
+ * Map a rendered-text offset to the corresponding raw-markdown offset.
+ * When exact text matching fails (math/formatting chars differ between
+ * raw and rendered), falls back to a normalized comparison that strips
+ * `$`, `_`, `*`, `\\`, `{`, `}`, `` ` `` so the underlying words can still
+ * be located, then maps the result back to raw positions.
  */
 function renderedToRawOffset(
   rawContent: string,
   renderedText: string,
   renderedOffset: number,
   selectedText: string,
-): { start: number; end: number } {
+): { start: number; end: number; text: string } {
+  // 1. Try exact match in raw content
   const rawIdx = findClosestOccurrence(rawContent, selectedText, renderedText.length, renderedOffset);
   if (rawIdx >= 0) {
-    return { start: rawIdx, end: rawIdx + selectedText.length };
+    return { start: rawIdx, end: rawIdx + selectedText.length, text: selectedText };
   }
-  // Fallback: proportional estimate
+
+  // 2. Exact match failed — normalise both sides by stripping formatting
+  const rawNorm = normalizeForMatching(rawContent);
+  const selNorm = normalizeForMatching(selectedText);
+  const renderedNorm = normalizeForMatching(renderedText);
+
+  // Proportional position of the selection in rendered (normalised space)
+  const renderedNormLen = renderedNorm.text.length || 1;
+  const rendStartNorm = Math.round((renderedOffset / (renderedText.length || 1)) * renderedNormLen);
+
+  const normIdx = findClosestOccurrence(rawNorm.text, selNorm.text, renderedNormLen, rendStartNorm);
+  if (normIdx >= 0) {
+    // Map normalised positions back to raw positions
+    const rawStart = rawNorm.map[normIdx];
+    const rawEnd = rawNorm.map[normIdx + selNorm.text.length - 1] + 1;
+    const rawText = rawContent.slice(rawStart, rawEnd);
+    return { start: rawStart, end: rawEnd, text: rawText };
+  }
+
+  // 3. Last resort — proportional estimate, snap to word boundaries
   const ratio = renderedText.length > 0 ? renderedOffset / renderedText.length : 0;
-  const est = Math.round(rawContent.length * ratio);
-  return { start: est, end: est + selectedText.length };
+  let start = Math.round(rawContent.length * ratio);
+  let end = start + selectedText.length;
+
+  // Snap left to nearest space / newline
+  while (start > 0 && rawContent[start - 1] !== " " && rawContent[start - 1] !== "\n") start--;
+  // Snap right to nearest space / newline
+  while (end < rawContent.length && rawContent[end] !== " " && rawContent[end] !== "\n") end++;
+
+  const rawText = rawContent.slice(start, end);
+  return { start, end, text: rawText };
 }
 
 /**
  * Map a raw-markdown offset to the corresponding rendered-text offset
- * (the reverse of renderedToRawOffset). Used when applying highlights
- * that were stored as raw offsets (#13) to the rendered DOM.
+ * (the reverse of renderedToRawOffset).  Uses the same normalised-matching
+ * fallback so that highlights land correctly even when the stored text
+ * contains markdown formatting characters.
  */
 function rawToRenderedOffset(
   rawContent: string,
@@ -109,11 +160,28 @@ function rawToRenderedOffset(
   rawOffset: number,
   selectedText: string,
 ): number {
+  // 1. Try exact match in rendered text
   const renderedIdx = findClosestOccurrence(renderedText, selectedText, rawContent.length, rawOffset);
   if (renderedIdx >= 0) {
     return renderedIdx;
   }
-  // Fallback: proportional estimate
+
+  // 2. Exact match failed — normalise both sides
+  const rawNorm = normalizeForMatching(rawContent);
+  const selNorm = normalizeForMatching(selectedText);
+  const renderedNorm = normalizeForMatching(renderedText);
+
+  // Proportional position of the raw offset in normalised raw space
+  const rawNormLen = rawNorm.text.length || 1;
+  const rawStartNorm = Math.round((rawOffset / (rawContent.length || 1)) * rawNormLen);
+
+  const normIdx = findClosestOccurrence(renderedNorm.text, selNorm.text, rawNormLen, rawStartNorm);
+  if (normIdx >= 0) {
+    // Map normalised position back to rendered position
+    return renderedNorm.map[normIdx];
+  }
+
+  // 3. Last resort — proportional estimate
   const ratio = rawContent.length > 0 ? rawOffset / rawContent.length : 0;
   return Math.round(renderedText.length * ratio);
 }
@@ -183,13 +251,17 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
         // Get the rendered text content
         const renderedText = contentEl.textContent || "";
 
-        // Map rendered offset → raw markdown offset using text search
+        // Map rendered offset → raw markdown offset using text search.
+        // Use the raw text returned by renderedToRawOffset so the stored
+        // selectedText always matches the raw markdown (important when
+        // the selection spans math or other formatted content).
         const raw = renderedToRawOffset(content, renderedText, renderedPos, text);
-        setSelectionRange({ text, start: raw.start, end: raw.end });
+        setSelectionRange({ text: raw.text, start: raw.start, end: raw.end });
       } catch {
         // Fallback: search in raw content directly
         const s = content.indexOf(text);
-        setSelectionRange({ text, start: s, end: s >= 0 ? s + text.length : 0 });
+        const rawText = s >= 0 ? text : content.slice(s, s + text.length);
+        setSelectionRange({ text: rawText, start: Math.max(0, s), end: s >= 0 ? s + text.length : 0 });
       }
     }
   }, [content]);
