@@ -19,29 +19,76 @@ export function buildGleanPayload(
   };
 }
 
+/** Labels that are generic search/reasoning prompts, not useful as queries */
+const GENERIC_LABELS = new Set([
+  "Searching company knowledge",
+  "Searching",
+  "Reading",
+  "Planning",
+  "Thinking",
+  "Analyzing",
+  "Reasoning",
+  "Generating",
+]);
+
 /**
- * Extract the answer text from a Glean Chat API response.
- * Renders only CONTENT-type messages (the final answer).
- * Intermediate search/reasoning steps are skipped (see commits 28-30).
+ * Extract the answer text and an optional research trail from a Glean Chat API
+ * response. Only CONTENT-type messages contribute to the answer. UPDATE-type
+ * messages surface search queries as a compact markdown blockquote trail.
  */
 export function extractGleanAnswer(json: any): string {
   const messages: any[] = json?.messages;
   if (!Array.isArray(messages)) return "";
 
+  // Answer: only CONTENT messages (final answer text)
   const contentMessages = messages.filter(
     (m) => m.messageType === "CONTENT",
   );
 
-  // If no CONTENT messages found, fall back to messages without a messageType
-  const candidates =
+  // Fallback: if no CONTENT messages, use messages without a messageType
+  const answerMessages =
     contentMessages.length > 0
       ? contentMessages
       : messages.filter((m) => !m.messageType);
 
-  return candidates
-    .map((m) => m.fragments?.map((f: any) => f.text).join("") ?? m.text ?? "")
+  const answer = answerMessages
+    .map((m) =>
+      m.fragments?.map((f: any) => f.text).join("") ?? m.text ?? "",
+    )
     .join("\n")
     .trim();
+
+  // Research trail: use UPDATE messages (the live response shape)
+  // Each UPDATE message carries a search step in fragments[1].text
+  const updateMessages = messages.filter(
+    (m) => m.messageType === "UPDATE",
+  );
+
+  if (updateMessages.length > 0) {
+    const queries: string[] = [];
+    for (const msg of updateMessages) {
+      const fragments: any[] = msg.fragments ?? [];
+      // fragments[0] is a label like "**Searching:**"
+      // fragments[1] is the actual search query
+      const query = fragments[1]?.text?.trim();
+      if (query && !GENERIC_LABELS.has(query)) {
+        queries.push(query);
+      }
+    }
+
+    // De-duplicate while preserving order
+    const unique = [...new Set(queries)];
+
+    if (unique.length > 0) {
+      const trail =
+        "> **Searched:** " +
+        unique.map((q) => "`" + q + "`").join(" · ") +
+        "\n\n---\n\n";
+      return trail + answer;
+    }
+  }
+
+  return answer;
 }
 
 async function apiError(resp: Response): Promise<Error> {
