@@ -2,10 +2,29 @@ import { DEFAULT_PROMPT_CONFIG, type PromptConfig, type ContextSlice } from "./t
 import type { TreeStore } from "./tree-store";
 
 function cutSurrounding(content: string, startPos: number, endPos: number, radius: number): string {
-  const before = content.slice(Math.max(0, startPos - radius), startPos);
+  let left = Math.max(0, startPos - radius);
+  let right = Math.min(content.length, endPos + radius);
+
+  // Snap left edge to the next word boundary (space) to avoid mid-word cuts
+  if (left > 0) {
+    const spaceAfter = content.indexOf(" ", left);
+    if (spaceAfter !== -1 && spaceAfter < startPos) left = spaceAfter + 1;
+  }
+
+  // Snap right edge to the previous word boundary
+  if (right < content.length) {
+    const spaceBefore = content.lastIndexOf(" ", right);
+    if (spaceBefore > endPos) right = spaceBefore;
+  }
+
+  const before = content.slice(left, startPos);
   const selected = content.slice(startPos, endPos);
-  const after = content.slice(endPos, endPos + radius);
-  return before + selected + after;
+  const after = content.slice(endPos, right);
+
+  const prefix = left > 0 ? "…" : "";
+  const suffix = right < content.length ? "…" : "";
+
+  return prefix + before + selected + after + suffix;
 }
 
 export interface SelectionInfo {

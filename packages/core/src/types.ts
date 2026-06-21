@@ -52,6 +52,10 @@ export interface AskOptions {
   template?: string;
   signal?: AbortSignal;
   onChunk?: (text: string) => void;
+  /** Rendered system prompt — when supplied, clients use this instead of ad-hoc build */
+  system?: string;
+  /** Rendered user prompt — when supplied, clients use this instead of ad-hoc build */
+  user?: string;
 }
 
 export interface PromptConfig {

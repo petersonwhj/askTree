@@ -177,8 +177,13 @@ export function DualPanel() {
           store,
           promptConfig,
         );
-        renderPrompt(slices, question, promptConfig.template);
-        const answer = await llm.ask({ question, contextSlices: slices });
+        const rendered = renderPrompt(slices, question, promptConfig.template);
+        const answer = await llm.ask({
+          question,
+          contextSlices: slices,
+          system: rendered.system,
+          user: rendered.user,
+        });
         await store.updateContent(childId, answer);
         setChildContent(answer);
       } catch (e) {

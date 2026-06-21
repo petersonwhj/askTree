@@ -20,23 +20,34 @@ export async function askOpenAICompat(config: LLMConfig, options: AskOptions): P
     headers["Authorization"] = authValue;
   }
 
+  // Use rendered prompt when available; fall back to ad-hoc concatenation
+  const messages: Array<{ role: string; content: string }> = [];
+  if (options.system && options.user) {
+    messages.push(
+      { role: "system", content: options.system },
+      { role: "user", content: options.user },
+    );
+  } else {
+    messages.push(
+      {
+        role: "system",
+        content: "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
+      },
+      {
+        role: "user",
+        content:
+          options.contextSlices.map((s) => s.surrounding).join("\n\n") +
+          `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`,
+      },
+    );
+  }
+
   const resp = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
       model: config.model,
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
-        },
-        {
-          role: "user",
-          content:
-            options.contextSlices.map((s) => s.surrounding).join("\n\n") +
-            `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`,
-        },
-      ],
+      messages,
       stream: false,
     }),
     signal: options.signal,

@@ -29,19 +29,30 @@ export async function askAnthropic(config: LLMConfig, options: AskOptions): Prom
     }
   }
 
+  // Use rendered prompt when available; fall back to ad-hoc concatenation
+  let system: string;
+  let userContent: string;
+  if (options.system && options.user) {
+    system = options.system;
+    userContent = options.user;
+  } else {
+    system = "You are a helpful learning assistant. Explain concepts clearly and thoroughly.";
+    userContent =
+      options.contextSlices.map((s) => s.surrounding).join("\n\n") +
+      `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`;
+  }
+
   const resp = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
       model: config.model,
       max_tokens: 4096,
-      system: "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
+      system,
       messages: [
         {
           role: "user",
-          content:
-            options.contextSlices.map((s) => s.surrounding).join("\n\n") +
-            `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`,
+          content: userContent,
         },
       ],
       stream: false,
