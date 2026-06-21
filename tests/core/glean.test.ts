@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildGleanPayload, extractGleanAnswer } from "@asktree/core/llm/glean";
+import { buildGleanPayload, extractGleanAnswer } from "@asktree/core";
 
 describe("buildGleanPayload", () => {
   it("should combine system and user into a single user message", () => {
