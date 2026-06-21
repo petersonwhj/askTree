@@ -25,7 +25,7 @@ body {
 
 .app-header button {
   padding: 4px 12px; background: #21262d; border: 1px solid #30363d;
-  border-radius: 6px; color: #c9d1d9; cursor: pointer; font-size: 12px;
+  border-radius: 6px; color: #c9d1d9; cursor: pointer; font-size: 14px;
 }
 
 .app-header button:hover { background: #30363d; }
