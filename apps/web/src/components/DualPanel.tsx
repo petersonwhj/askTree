@@ -171,7 +171,12 @@ export function DualPanel() {
 
     (async () => {
       try {
-        const slices = await collectContext(questionedNodeId, "", store, promptConfig);
+        const slices = await collectContext(
+          questionedNodeId,
+          askedText ? { start: askedStart, end: askedEnd, text: askedText } : null,
+          store,
+          promptConfig,
+        );
         renderPrompt(slices, question, promptConfig.template);
         const answer = await llm.ask({ question, contextSlices: slices });
         await store.updateContent(childId, answer);

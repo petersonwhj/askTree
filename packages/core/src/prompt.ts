@@ -8,9 +8,15 @@ function cutSurrounding(content: string, startPos: number, endPos: number, radiu
   return before + selected + after;
 }
 
+export interface SelectionInfo {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export async function collectContext(
   nodeId: string,
-  _edgeId: string,
+  selection: SelectionInfo | null,
   store: TreeStore,
   config: PromptConfig = DEFAULT_PROMPT_CONFIG
 ): Promise<ContextSlice[]> {
@@ -27,9 +33,17 @@ export async function collectContext(
     let startPos = 0;
     let endPos = 0;
 
-    if (node.parentId && depth > 0) {
-      const parent = store.getNode(node.parentId);
-      const edge = parent?.children.find((e) => e.targetNodeId === node.id);
+    if (depth === 0 && selection) {
+      // Use the user's exact selection offsets for the focused node
+      selectedText = selection.text;
+      startPos = selection.start;
+      endPos = selection.end;
+    } else if (depth > 0) {
+      // For ancestors: find edge from this ancestor → its child in the path,
+      // whose stored positions correctly index this ancestor's own content
+      // (not the parent → this node edge, which indexes the parent's content)
+      const childInPath = path[i + 1];
+      const edge = node.children.find((e) => e.targetNodeId === childInPath.id);
       if (edge?.selectedText) {
         selectedText = edge.selectedText;
         startPos = edge.startPos;
