@@ -2,6 +2,26 @@
 
 AskTree is an open-source, pure-frontend tool for learning through tree-structured Q&A. Load a Markdown article, select text, ask questions, and let an LLM guide you deeper — each answer becoming a new branch in your knowledge tree.
 
+## Philosophy
+
+**Reading alone is passive. Asking questions makes it active.**
+
+Most people read articles linearly: scroll, skim, move on. Real understanding comes from interrogating the text — pausing at a confusing sentence, asking _why_, and getting an explanation that connects the dots. AskTree turns every article into a conversation.
+
+**Every answer is a new starting point.**
+
+Unlike chat-based AI tools where each question stands alone, AskTree organizes your learning as a **tree**. You start with the root article. You select a passage, ask about it, and the LLM's answer becomes a child node — itself a full Markdown article. You can then select text _within that answer_ and ask a follow-up question. The tree grows exactly as deep as your curiosity takes you.
+
+**Structure reflects understanding.**
+
+Each branch is a line of inquiry. Each node has a status: _question_ (still exploring) or _resolved_ (fully understood). The sidebar gives you a map of your own learning process — where you've been, what's still open, how deep you've gone.
+
+**Your data stays yours.**
+
+Everything runs in your browser. Articles, questions, answers, and the tree structure are stored locally in IndexedDB. No server, no account, no analytics. You choose which LLM to use — local (Ollama), API-based (OpenAI-compatible, Anthropic), or your own enterprise gateway.
+
+AskTree doesn't just answer your questions. It turns learning into a structured, explorable artifact that grows with you.
+
 ## Concept
 
 1. **Root node** — your initial article (paste, load a `.md` file, or drag & drop)
