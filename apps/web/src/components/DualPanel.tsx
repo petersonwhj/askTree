@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
 import { QuestionInputBar } from "./QuestionInputBar";
+import { PromptDebugModal } from "./PromptDebugModal";
 import { collectContext, renderPrompt } from "@asktree/core";
 import type { Node } from "@asktree/core";
 
@@ -19,6 +20,7 @@ export function DualPanel() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [debugNodeId, setDebugNodeId] = useState<string | null>(null);
 
   const currentNode = activePath[activePath.length - 1];
   const parentNode = activePath.length >= 2 ? activePath[activePath.length - 2] : currentNode;
@@ -280,6 +282,14 @@ export function DualPanel() {
               </span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
+                  onClick={() => setDebugNodeId(currentNode.id)}
+                  className="close-panel-btn"
+                  title="Show prompt debug"
+                  style={{ fontFamily: "monospace", fontWeight: "bold" }}
+                >
+                  ?
+                </button>
+                <button
                   onClick={() => navigateUp()}
                   className="close-panel-btn"
                   title="Close answer"
@@ -322,5 +332,6 @@ export function DualPanel() {
         />
       </div>
     </div>
+    {debugNodeId && <PromptDebugModal nodeId={debugNodeId} onClose={() => setDebugNodeId(null)} />}
   );
 }
