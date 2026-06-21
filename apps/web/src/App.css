@@ -80,7 +80,7 @@ body {
 
 .panel-header {
   padding: 8px 12px; font-size: 12px; border-bottom: 1px solid #21262d;
-  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0;
   gap: 8px; min-width: 0;
 }
 
@@ -92,7 +92,6 @@ body {
 
 .panel-title {
   font-size: 14px; font-weight: 600; color: #c9d1d9;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   flex: 1; min-width: 0;
 }
 
