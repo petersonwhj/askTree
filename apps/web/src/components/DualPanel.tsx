@@ -210,7 +210,8 @@ export function DualPanel() {
       <div className="panel" style={{ width: `${splitRatio}%`, flex: "none" }}>
         <div className="panel-header">
           <span className="node-type">
-            {parentNode.type === "article" ? "📄" : "❓"} {parentNode.title.slice(0, 50)}
+            {parentNode.type === "article" ? "📄" : "❓"}{" "}
+            <span className="panel-title" title={parentNode.title}>{parentNode.title}</span>
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {(activePath.length > 1 || parentNode.parentId) && (
@@ -275,7 +276,7 @@ export function DualPanel() {
           <>
             <div className="panel-header">
               <span className="node-type">
-                ❓ {currentNode.title.slice(0, 50)}
+                ❓ <span className="panel-title" title={currentNode.title}>{currentNode.title}</span>
               </span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button

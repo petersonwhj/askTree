@@ -36,7 +36,7 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
           onContextMenu={(e) => handleDelete(node, e)}
         >
           <span className="status-dot" style={{ backgroundColor: statusColors[node.status] }} />
-          {node.title.slice(0, 30)}
+          <span title={node.title}>{node.title}</span>
         </div>
         {node.children.map((edge) => {
           const child = store.getNode(edge.targetNodeId);

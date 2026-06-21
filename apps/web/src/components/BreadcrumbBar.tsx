@@ -13,9 +13,10 @@ export function BreadcrumbBar() {
           <span
             className={`crumb ${i === activePath.length - 1 ? "active" : ""}`}
             onClick={() => navigateTo(node.id)}
+            title={node.title}
           >
             {node.type === "article" ? "📄 " : "❓ "}
-            {node.title.slice(0, 40)}
+            {node.title}
           </span>
         </span>
       ))}
