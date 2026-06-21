@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { renderMarkdown } from "../lib/markdown";
+import { useState, useRef, useEffect } from "react";
 
 interface Props { contextText: string | null; onSend: (question: string) => void; isLoading: boolean; }
 
@@ -8,11 +7,6 @@ const MAX_ROWS = 10;
 export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
-
-  const contextHtml = useMemo(() => {
-    if (!contextText) return null;
-    return renderMarkdown(contextText);
-  }, [contextText]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -40,10 +34,8 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
 
   return (
     <div className="question-input-bar">
-      {contextHtml ? (
-        <div className="context-badge" title={contextText || ""}>
-          <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
-        </div>
+      {contextText ? (
+        <div className="context-badge" title={contextText}>{contextText}</div>
       ) : (
         <span className="context-label">Free ask</span>
       )}
