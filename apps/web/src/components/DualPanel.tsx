@@ -209,8 +209,9 @@ export function DualPanel() {
                   if (activePath.length > 1) {
                     navigateUp();
                   } else {
-                    const p = store.getNode(parentNode.parentId!);
-                    if (p) navigateTo(p.id);
+                    // Navigate via getPath to resolve full ancestor path
+                    // so current node is preserved in the right panel
+                    navigateTo(currentNode.id);
                   }
                 }}
                 className="shift-btn"
