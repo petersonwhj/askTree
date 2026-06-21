@@ -45,6 +45,59 @@ function getTextOffset(container: Node, targetNode: Node, targetOffset: number):
   return range.toString().length;
 }
 
+/**
+ * Find the occurrence of `needle` in `haystack` whose proportional position
+ * is closest to `refPos / refLen`. Used to map between rendered and raw
+ * coordinate systems.
+ */
+function findClosestOccurrence(
+  haystack: string,
+  needle: string,
+  refLen: number,
+  refPos: number,
+): number {
+  if (!needle) return -1;
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  const targetRatio = refLen > 0 ? refPos / refLen : 0;
+  let searchFrom = 0;
+
+  while (true) {
+    const idx = haystack.indexOf(needle, searchFrom);
+    if (idx === -1) break;
+    const ratio = haystack.length > 0 ? idx / haystack.length : 0;
+    const dist = Math.abs(ratio - targetRatio);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = idx;
+    }
+    searchFrom = idx + 1;
+  }
+
+  return bestIdx;
+}
+
+/**
+ * Map a rendered-text offset to the corresponding raw-markdown offset
+ * by locating the selected text in the raw source, using proportional
+ * position as a tie-breaker when the text appears multiple times.
+ */
+function renderedToRawOffset(
+  rawContent: string,
+  renderedText: string,
+  renderedOffset: number,
+  selectedText: string,
+): { start: number; end: number } {
+  const rawIdx = findClosestOccurrence(rawContent, selectedText, renderedText.length, renderedOffset);
+  if (rawIdx >= 0) {
+    return { start: rawIdx, end: rawIdx + selectedText.length };
+  }
+  // Fallback: proportional estimate
+  const ratio = renderedText.length > 0 ? renderedOffset / renderedText.length : 0;
+  const est = Math.round(rawContent.length * ratio);
+  return { start: est, end: est + selectedText.length };
+}
+
 export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -87,16 +140,24 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
     const contentEl = contentRef.current;
     if (contentEl && sel.anchorNode && sel.focusNode) {
       try {
-        const start = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
-        const end = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
-        setSelectionRange({ text, start: Math.min(start, end), end: Math.max(start, end) });
+        // Get offset in rendered DOM text
+        const renderedStart = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
+        const renderedEnd = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
+        const renderedPos = Math.min(renderedStart, renderedEnd);
+
+        // Get the rendered text content
+        const renderedText = contentEl.textContent || "";
+
+        // Map rendered offset → raw markdown offset using text search
+        const raw = renderedToRawOffset(content, renderedText, renderedPos, text);
+        setSelectionRange({ text, start: raw.start, end: raw.end });
       } catch {
-        const t = containerRef.current?.textContent || "";
-        const s = t.indexOf(text);
+        // Fallback: search in raw content directly
+        const s = content.indexOf(text);
         setSelectionRange({ text, start: s, end: s >= 0 ? s + text.length : 0 });
       }
     }
-  }, []);
+  }, [content]);
 
   useEffect(() => {
     document.addEventListener("mouseup", handleSelection);
