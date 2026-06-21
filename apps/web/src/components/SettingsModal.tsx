@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTree } from "../hooks/useTree";
 import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 
-type Provider = "ollama" | "openai" | "anthropic" | "gateway";
+type Provider = "ollama" | "openai" | "anthropic" | "glean" | "gateway";
 type GatewayFormat = "openai" | "anthropic";
 
 const PRESETS: Record<Provider, {
@@ -36,6 +36,14 @@ const PRESETS: Record<Provider, {
     modelPlaceholder: "claude-sonnet-4-6",
     needsAuth: true,
     authLabel: "API Key",
+  },
+  glean: {
+    endpoint: "https://your-tenant.glean.com",
+    model: "",
+    endpointPlaceholder: "https://your-tenant.glean.com",
+    modelPlaceholder: "",
+    needsAuth: true,
+    authLabel: "Access Token",
   },
   gateway: {
     endpoint: "https://your-gateway.example.com",
@@ -204,7 +212,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>LLM Configuration</h3>
         <label>Provider</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-          {(["ollama", "openai", "anthropic", "gateway"] as Provider[]).map((p) => (
+          {(["ollama", "openai", "anthropic", "glean", "gateway"] as Provider[]).map((p) => (
             <button
               key={p}
               onClick={() => applyPreset(p)}
@@ -219,7 +227,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 cursor: "pointer",
               }}
             >
-              {p === "ollama" ? "🖥️ Ollama" : p === "openai" ? "☁️ OpenAI Compat." : p === "anthropic" ? "🧠 Anthropic" : "🏢 Custom Gateway"}
+              {p === "ollama" ? "🖥️ Ollama" : p === "openai" ? "☁️ OpenAI Compat." : p === "anthropic" ? "🧠 Anthropic" : p === "glean" ? "🔍 Glean" : "🏢 Custom Gateway"}
             </button>
           ))}
         </div>
@@ -280,8 +288,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        <label>Model</label>
-        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={preset.modelPlaceholder} />
+        {provider !== "glean" && (
+          <>
+            <label>Model</label>
+            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={preset.modelPlaceholder} />
+          </>
+        )}
 
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>Prompt Configuration</h3>
         <label>Max Ancestor Depth</label>

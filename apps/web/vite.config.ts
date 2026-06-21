@@ -5,23 +5,38 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Reusable origin-stripping proxy hook for internal gateways */
+function stripOriginHeaders(proxy: any) {
+  proxy.on("proxyReq", (proxyReq: any) => {
+    proxyReq.removeHeader("origin");
+    proxyReq.removeHeader("referer");
+  });
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, resolve(__dirname, "../.."), "");
-  const proxyTarget = env.LLM_PROXY_TARGET;
+  const llmProxyTarget = env.LLM_PROXY_TARGET;
+  const gleanProxyTarget = env.GLEAN_PROXY_TARGET;
 
-  const proxy = proxyTarget ? {
-    "^/llm-": {
-      target: proxyTarget,
+  const proxy: Record<string, any> = {};
+
+  if (llmProxyTarget) {
+    proxy["^/llm-"] = {
+      target: llmProxyTarget,
       changeOrigin: true,
       rewrite: (path: string) => path.replace(/^\/llm-[^/]*/, ""),
-      configure: (proxy: any) => {
-        proxy.on("proxyReq", (proxyReq: any) => {
-          proxyReq.removeHeader("origin");
-          proxyReq.removeHeader("referer");
-        });
-      },
-    },
-  } : undefined;
+      configure: stripOriginHeaders,
+    };
+  }
+
+  if (gleanProxyTarget) {
+    proxy["^/glean-proxy"] = {
+      target: gleanProxyTarget,
+      changeOrigin: true,
+      rewrite: (path: string) => path.replace(/^\/glean-proxy/, ""),
+      configure: stripOriginHeaders,
+    };
+  }
 
   return {
     base: "/askTree/",
@@ -31,6 +46,6 @@ export default defineConfig(({ mode }) => {
         "@asktree/core": resolve(__dirname, "../../packages/core/src/index.ts"),
       },
     },
-    server: proxy ? { proxy } : {},
+    server: Object.keys(proxy).length > 0 ? { proxy } : {},
   };
 });
