@@ -56,6 +56,26 @@ export function DualPanel() {
     }
   }, [createRootTree, resetTree, currentNode]);
 
+  const handleDividerDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startRatio = splitRatio;
+    const container = (e.target as HTMLElement).parentElement;
+    const containerWidth = container?.clientWidth || window.innerWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const newRatio = Math.min(80, Math.max(20, startRatio + (dx / containerWidth) * 100));
+      setSplitRatio(newRatio);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [splitRatio]);
+
   if (!currentNode) {
     const handleStart = async () => {
       const content = newArticleRef.current?.value || newContent;
@@ -174,26 +194,6 @@ export function DualPanel() {
   const handleTextSelected = (text: string, start: number, end: number, nodeId: string) => {
     setSelectedText({ text, start, end, nodeId });
   };
-
-  const handleDividerDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startRatio = splitRatio;
-    const container = (e.target as HTMLElement).parentElement;
-    const containerWidth = container?.clientWidth || window.innerWidth;
-
-    const onMove = (ev: MouseEvent) => {
-      const dx = ev.clientX - startX;
-      const newRatio = Math.min(80, Math.max(20, startRatio + (dx / containerWidth) * 100));
-      setSplitRatio(newRatio);
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [splitRatio]);
 
   return (
     <div className="dual-panel">
