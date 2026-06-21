@@ -190,7 +190,7 @@ export function DualPanel() {
       <div className="panel" style={{ width: `${splitRatio}%`, flex: "none" }}>
         <div className="panel-header">
           <span className="node-type">
-            {parentNode.type === "article" ? "📄" : "❓"}{" "}
+            {parentNode.type === "article" ? "📖" : "❓"}{" "}
             <span className="panel-title" title={parentNode.title}>{parentNode.title}</span>
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

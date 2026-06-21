@@ -15,7 +15,7 @@ export function BreadcrumbBar() {
             onClick={() => navigateTo(node.id)}
             title={node.title}
           >
-            {node.type === "article" ? "📄 " : "❓ "}
+            {node.type === "article" ? "📖 " : "❓ "}
             {node.title}
           </span>
         </span>
