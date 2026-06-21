@@ -241,7 +241,7 @@ export function DualPanel() {
                 if (file) handleFileLoad(file);
               }}
             />
-            <button onClick={() => fileInputRef.current?.click()} className="load-file-btn">Load File</button>
+            <button onClick={() => fileInputRef.current?.click()} className="load-file-btn" title="Load markdown file">📂</button>
             <select
               value={parentNode.status}
               onChange={(e) => { store.updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}

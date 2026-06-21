@@ -91,6 +91,7 @@ body {
 }
 
 .panel-title {
+  font-size: 14px; font-weight: 600; color: #c9d1d9;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   flex: 1; min-width: 0;
 }
@@ -101,10 +102,11 @@ body {
 }
 
 .load-file-btn {
-  font-size: 11px; background: #21262d; border: 1px solid #58a6ff;
-  border-radius: 4px; color: #58a6ff; padding: 1px 8px; cursor: pointer;
+  font-size: 14px; background: #21262d; border: 1px solid #30363d;
+  border-radius: 4px; color: #8b949e; padding: 1px 6px; cursor: pointer;
+  line-height: 1;
 }
-.load-file-btn:hover { background: #1a3a5c; }
+.load-file-btn:hover { color: #58a6ff; border-color: #58a6ff; }
 
 .close-panel-btn {
   font-size: 12px; background: none; border: 1px solid #30363d;
