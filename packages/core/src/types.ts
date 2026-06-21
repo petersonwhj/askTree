@@ -63,10 +63,10 @@ export interface PromptConfig {
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   maxDepth: 3,
   contextRadius: [200, 100, 50],
-  template: `System: 你是一个帮助用户理解文章内容的学习助手。请基于提供的文章上下文，针对用户的问题给出清晰、结构化的解释。使用通俗易懂的语言，逐步深入。
+  template: `System: You are a focused study assistant helping a learner understand an article. Answer using only the provided context. When the context is insufficient to answer confidently, say so rather than guessing. Use clear, structured explanations and match the language of the question.
 
 User:
-我正在学习以下文章，请基于上下文回答我的问题：
+I'm studying **{root_title}**. My question trail: {path_summary}
 
 {ancestors}
 
@@ -74,7 +74,7 @@ User:
 {surrounding_text}
 ---
 
-我对文中「{selected_text}」有疑问：
+About the highlighted part "{selected_text}":
 
 {user_question}`,
 };
