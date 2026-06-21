@@ -186,6 +186,7 @@ export function DualPanel() {
   };
 
   return (
+    <>
     <div className="dual-panel">
       <div className="panel" style={{ width: `${splitRatio}%`, flex: "none" }}>
         <div className="panel-header">
@@ -302,5 +303,6 @@ export function DualPanel() {
       </div>
     </div>
     {debugNodeId && <PromptDebugModal nodeId={debugNodeId} onClose={() => setDebugNodeId(null)} />}
+    </>
   );
 }
