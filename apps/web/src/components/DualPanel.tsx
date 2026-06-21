@@ -9,14 +9,13 @@ import type { Node } from "@asktree/core";
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, updateStatus, promptConfig, createRootTree, resetTree, navigateTo, focusNode, navigateUp,
+    addChildNode, updateStatus, promptConfig, createRootTree, navigateTo, focusNode, navigateUp,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [splitRatio, setSplitRatio] = useState(50);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -42,21 +41,6 @@ export function DualPanel() {
       setChildContent(null);
     }
   }, [currentNode, parentNode, store]);
-
-  const handleFileLoad = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-      if (currentNode) {
-        await resetTree();
-      }
-      await createRootTree(text, title);
-      setNewContent("");
-      setNewTitle("");
-    } catch (e) {
-      setError("Failed to read file: " + (e as Error).message);
-    }
-  }, [createRootTree, resetTree, currentNode]);
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -91,31 +75,25 @@ export function DualPanel() {
       <div className="dual-panel">
         <div
           className={`empty-state ${isDragOver ? "drag-over" : ""}`}
-          onDrop={(e) => {
+          onDrop={async (e) => {
             e.preventDefault();
             setIsDragOver(false);
             const file = e.dataTransfer.files[0];
-            if (file) handleFileLoad(file);
+            if (file) {
+              try {
+                const text = await file.text();
+                const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
+                await createRootTree(text, title);
+              } catch (err) {
+                setError("Failed to read file: " + (err as Error).message);
+              }
+            }
           }}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
         >
           <h2>Welcome to AskTree</h2>
-          <p>Paste an article, load a file, or drag & drop a Markdown file to start learning.</p>
-
-          <div className="empty-state-actions">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".md,.markdown,.txt"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileLoad(file);
-              }}
-            />
-            <button onClick={() => fileInputRef.current?.click()}>Load .md File</button>
-          </div>
+          <p>Paste an article, drop a Markdown file, or use the 📂 button above to start learning.</p>
 
           <input
             type="text" placeholder="Article title..." value={newTitle}
@@ -233,17 +211,6 @@ export function DualPanel() {
                 →
               </button>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".md,.markdown,.txt"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileLoad(file);
-              }}
-            />
-            <button onClick={() => fileInputRef.current?.click()} className="load-file-btn" title="Load markdown file">📂</button>
             <select
               value={parentNode.status}
               onChange={(e) => { updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}
