@@ -8,7 +8,7 @@ import type { Node } from "@asktree/core";
 export function DualPanel() {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, promptConfig, createRootTree, resetTree, navigateTo, focusNode, navigateUp,
+    addChildNode, updateStatus, promptConfig, createRootTree, resetTree, navigateTo, focusNode, navigateUp,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -244,7 +244,7 @@ export function DualPanel() {
             <button onClick={() => fileInputRef.current?.click()} className="load-file-btn" title="Load markdown file">📂</button>
             <select
               value={parentNode.status}
-              onChange={(e) => { store.updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}
+              onChange={(e) => { updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}
               className="status-select"
             >
               <option value="question">question</option>
@@ -288,7 +288,7 @@ export function DualPanel() {
                 </button>
                 <select
                   value={currentNode.status}
-                  onChange={(e) => { store.updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
+                  onChange={(e) => { updateStatus(currentNode.id, e.target.value as "resolved" | "question"); }}
                   className="status-select"
                 >
                   <option value="question">question</option>

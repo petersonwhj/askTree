@@ -12,6 +12,7 @@ interface TreeContextValue {
   createRootTree: (content: string, title: string) => Promise<void>;
   resetTree: () => Promise<void>;
   addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
+  updateStatus: (nodeId: string, status: Node["status"]) => void;
   selectedText: { text: string; start: number; end: number; nodeId: string } | null;
   setSelectedText: (s: TreeContextValue["selectedText"]) => void;
   importBundle: (bundle: ExportBundle) => Promise<void>;
@@ -100,6 +101,14 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     return child;
   }, []);
 
+  const updateStatus = useCallback((nodeId: string, status: Node["status"]) => {
+    storeRef.current.updateStatus(nodeId, status);
+    // Patch the matching node in activePath so React re-renders with new status
+    setActivePath((prev) =>
+      prev.map((n) => (n.id === nodeId ? { ...n, status } : n))
+    );
+  }, []);
+
   const importBundleFn = useCallback(async (bundle: ExportBundle) => {
     const adapter = new IndexedDBStorageAdapter();
     const store = await TreeStore.importBundle(bundle, adapter);
@@ -115,7 +124,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   return (
     <TreeContext.Provider value={{
         store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
-        createRootTree, resetTree, addChildNode, selectedText, setSelectedText,
+        createRootTree, resetTree, addChildNode, updateStatus, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
     }}>
       {children}
