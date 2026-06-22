@@ -57,11 +57,13 @@ function serializeInRange(node: Node, range: Range): string {
 
 /**
  * Reconstruct the markdown source covered by `range`.
- * Only used when the selection actually intersects KaTeX — for plain
- * prose we fall back to `sel.toString()` which is faster and reliable.
+ * Walk from range.commonAncestorContainer (not the whole contentEl root)
+ * so we only touch nodes actually within the selection.
+ * Only used when the selection intersects KaTeX.
  */
-function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
-  return serializeInRange(contentEl, range).trim();
+function extractSelectionSource(range: Range): string {
+  const root = range.commonAncestorContainer;
+  return serializeInRange(root, range).trim();
 }
 
 /** Check whether a Selection intersects any .katex element */
@@ -252,7 +254,7 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
     const touchesKatex = selectionTouchesKatex(sel, contentEl);
     const domText = sel.toString().trim();
     const sourceText = touchesKatex
-      ? extractSelectionSource(contentEl, range)
+      ? extractSelectionSource(range)
       : domText;
     if (!sourceText || sourceText.length > 500) {
       setFloatingPos(null);
