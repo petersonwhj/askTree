@@ -292,10 +292,11 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       const rEnd   = Math.max(renderedStart, renderedEnd);
       const renderedText = contentEl.textContent || "";
 
-      // sourceText for KaTeX contains real LaTeX → findClosestOccurrence finds exact match
-      // domText for prose is unchanged → works as before
-      const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, sourceText);
-      setSelectionRange({ text: sourceText, start: raw.start, end: raw.end });
+    // Use sourceText for offset mapping only (LaTeX matches raw markdown exactly).
+    // Store domText as the selection text — highlight walks rendered DOM and
+    // needs DOM text to locate the span via rawToRenderedOffsets.
+    const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, sourceText);
+    setSelectionRange({ text: domText, start: raw.start, end: raw.end });
     } catch {
       const s = content.indexOf(sourceText);
       setSelectionRange({ text: sourceText, start: s, end: s >= 0 ? s + sourceText.length : 0 });

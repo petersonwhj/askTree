@@ -1,25 +1,31 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { renderMarkdown } from "../lib/markdown";
 
-interface Props { contextText: string | null; onSend: (question: string) => void; isLoading: boolean; }
+interface Props {
+  contextText: string | null;
+  rawText?: string | null;  // raw markdown slice for proper math rendering
+  onSend: (question: string) => void;
+  isLoading: boolean;
+}
 
 const MAX_ROWS = 10;
 
-/** Balance inline-math `$` delimiters for partial-selection edge cases. */
 function balanceMath(text: string): string {
   const n = (text.match(/\$/g) || []).length;
   return n % 2 === 0 ? text : text + "$";
 }
 
-export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
+export function QuestionInputBar({ contextText, rawText, onSend, isLoading }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // contextText is now real markdown source (with LaTeX) from extractSelectionSource
+  // Use rawText for rendering when available (preserves $..$ for KaTeX).
+  // Fall back to contextText (DOM text) for plain prose.
   const contextHtml = useMemo(() => {
-    if (!contextText) return null;
-    return renderMarkdown(balanceMath(contextText));
-  }, [contextText]);
+    const src = rawText || contextText;
+    if (!src) return null;
+    return renderMarkdown(balanceMath(src));
+  }, [rawText, contextText]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -48,7 +54,7 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
   return (
     <div className="question-input-bar">
       {contextHtml ? (
-        <div className="context-badge" title={contextText || ""}>
+        <div className="context-badge" title={contextText || rawText || ""}>
           <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
         </div>
       ) : (

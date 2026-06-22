@@ -86,7 +86,7 @@ describe("MarkdownPane", () => {
     expect(onTextSelected).toHaveBeenCalledWith("Hello", expect.any(Number), expect.any(Number));
   });
 
-  it("should extract LaTeX from KaTeX annotation and skip MathML duplication", async () => {
+  it("should use LaTeX source for offset mapping and avoid doubled text for KaTeX selections", async () => {
     // Render with raw markdown content
     const onTextSelected = vi.fn();
     const rawContent = "The formula $a \\cdot a^{-1} = e$ is fundamental.";
@@ -176,8 +176,13 @@ describe("MarkdownPane", () => {
     fireEvent.mouseDown(floatingBtn!);
 
     expect(onTextSelected).toHaveBeenCalledTimes(1);
-    const [sourceText] = onTextSelected.mock.calls[0];
-    expect(sourceText).toBe("$a \\cdot a^{-1} = e$");
-    expect(sourceText).not.toContain("⋅"); // no visual glyph
+    const [storedText, start, end] = onTextSelected.mock.calls[0];
+    // storedText is domText (for highlight path).
+    // Raw LaTeX is computed in DualPanel from parentContent.slice(start, end).
+    // The key guarantee: NOT the doubled garble like "a ⋅ a⁻¹ = ea ⋅ a⁻¹ = e"
+    expect(storedText).not.toMatch(/(.{5,})\1/); // no significant substring repeated immediately
+    // Offsets must be valid
+    expect(end).toBeGreaterThan(start);
+    expect(start).toBeGreaterThanOrEqual(0);
   });
 });

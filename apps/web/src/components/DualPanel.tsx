@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
 import { QuestionInputBar } from "./QuestionInputBar";
@@ -41,6 +41,16 @@ export function DualPanel() {
       setChildContent(null);
     }
   }, [currentNode, parentNode, store]);
+
+  // Raw markdown slice for display (badge + placeholder).
+  // selectedText.text is DOM text (for highlight); offsets point into raw markdown.
+  // Slicing parentContent gives the real source with $..$ intact.
+  const displayRawText = useMemo(() => {
+    if (!selectedText || !parentContent) return null;
+    const { start, end } = selectedText;
+    if (start < 0 || end <= start || start >= parentContent.length) return null;
+    return parentContent.slice(start, Math.min(end, parentContent.length));
+  }, [selectedText, parentContent]);
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -126,14 +136,16 @@ export function DualPanel() {
     const askedText = selectedText?.text || "";
     const askedStart = selectedText?.start || 0;
     const askedEnd = selectedText?.end || 0;
+    // Capture raw markdown slice for display before clearing selectedText
+    const askedRawText = displayRawText || askedText;
     setSelectedText(null);
 
     // Appendix 2: don't hard-truncate when $ is present (avoids unbalanced delimiter)
     // Appendix 4: put selection on its own paragraph so $$ $$ display math parses
-    const selectionPara = askedText
-      ? askedText.includes("$")
-        ? askedText // keep whole, don't risk cutting a formula
-        : askedText.slice(0, 500)
+    const selectionPara = askedRawText
+      ? askedRawText.includes("$")
+        ? askedRawText
+        : askedRawText.slice(0, 500)
       : "";
     const placeholder = `> **Question:** ${question}\n\n` +
       (selectionPara
@@ -306,6 +318,7 @@ export function DualPanel() {
 
         <QuestionInputBar
           contextText={selectedText?.text || null}
+          rawText={displayRawText}
           onSend={handleSendQuestion}
           isLoading={false}
         />
