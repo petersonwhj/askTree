@@ -23,7 +23,6 @@ interface Props {
 function serializeInRange(node: Node, range: Range): string {
   if (!range.intersectsNode(node)) return "";
 
-  // Text node — clip to selection boundaries
   if (node.nodeType === Node.TEXT_NODE) {
     const text = node.textContent || "";
     const start = node === range.startContainer ? range.startOffset : 0;
@@ -31,23 +30,21 @@ function serializeInRange(node: Node, range: Range): string {
     return text.slice(start, end);
   }
 
-  // Element node
   if (node.nodeType === Node.ELEMENT_NODE) {
     const el = node as Element;
 
-    // KaTeX wrapper — emit annotation LaTeX ONCE, do NOT descend into
-    // .katex-mathml / .katex-html (that's where the duplication lives)
+    // KaTeX wrapper — emit annotation LaTeX ONCE, don't descend
     if (el.classList.contains("katex")) {
       const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
       if (annotation) {
         const tex = (annotation.textContent || "").trim();
         if (!tex) return "";
-        return el.closest(".katex-display") ? `$$\n${tex}\n$$` : `$${tex}$`;
+        // No extra newlines — must match the raw markdown exactly
+        return el.closest(".katex-display") ? `$$${tex}$$` : `$${tex}$`;
       }
-      return ""; // partial formula — skip rather than emit garbage
+      return "";
     }
 
-    // Recurse into children
     let result = "";
     for (let i = 0; i < node.childNodes.length; i++) {
       result += serializeInRange(node.childNodes[i], range);
@@ -58,9 +55,30 @@ function serializeInRange(node: Node, range: Range): string {
   return "";
 }
 
-/** Reconstruct the markdown source covered by `range` in the live DOM. */
+/**
+ * Reconstruct the markdown source covered by `range`.
+ * Only used when the selection actually intersects KaTeX — for plain
+ * prose we fall back to `sel.toString()` which is faster and reliable.
+ */
 function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
   return serializeInRange(contentEl, range).trim();
+}
+
+/** Check whether a Selection intersects any .katex element */
+function selectionTouchesKatex(sel: Selection, contentEl: HTMLElement): boolean {
+  const range = sel.getRangeAt(0);
+  // Quick check: does the range's common ancestor contain .katex?
+  let ancestor: Node | null = range.commonAncestorContainer;
+  while (ancestor && ancestor !== contentEl) {
+    if (ancestor instanceof Element && ancestor.classList.contains("katex")) return true;
+    ancestor = ancestor.parentNode;
+  }
+  // Broader: walk .katex elements and check intersection
+  const katexEls = contentEl.querySelectorAll(".katex");
+  for (const el of katexEls) {
+    if (range.intersectsNode(el)) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +247,13 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       return;
     }
 
-    // Reconstruct markdown source from the live DOM  (Appendix 3)
-    const sourceText = extractSelectionSource(contentEl, range);
+    // For KaTeX selections: reconstruct real LaTeX source  (Appendix 3)
+    // For plain prose: use sel.toString() — fast, reliable, unchanged
+    const touchesKatex = selectionTouchesKatex(sel, contentEl);
+    const domText = sel.toString().trim();
+    const sourceText = touchesKatex
+      ? extractSelectionSource(contentEl, range)
+      : domText;
     if (!sourceText || sourceText.length > 500) {
       setFloatingPos(null);
       setSelectionRange(null);
@@ -239,10 +262,8 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
 
     const rect = range.getBoundingClientRect();
 
-    // Show human-readable DOM text in the floating button
-    const displayText = sel.toString().trim().slice(0, 50);
     setFloatingPos({
-      text: displayText,
+      text: domText.slice(0, 50),
       top: rect.bottom + 4,
       left: rect.left + rect.width / 2 - 60,
     });
@@ -254,11 +275,11 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       const rEnd   = Math.max(renderedStart, renderedEnd);
       const renderedText = contentEl.textContent || "";
 
-      // sourceText now contains real LaTeX → findClosestOccurrence locates it
+      // sourceText for KaTeX contains real LaTeX → findClosestOccurrence finds exact match
+      // domText for prose is unchanged → works as before
       const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, sourceText);
       setSelectionRange({ text: sourceText, start: raw.start, end: raw.end });
     } catch {
-      // Last resort: search in raw content directly
       const s = content.indexOf(sourceText);
       setSelectionRange({ text: sourceText, start: s, end: s >= 0 ? s + sourceText.length : 0 });
     }
