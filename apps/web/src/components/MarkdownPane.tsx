@@ -25,9 +25,23 @@ function serializeInRange(node: Node, range: Range): string {
 
   if (node.nodeType === Node.TEXT_NODE) {
     const text = node.textContent || "";
-    const start = node === range.startContainer ? range.startOffset : 0;
-    const end   = node === range.endContainer   ? range.endOffset   : text.length;
-    return text.slice(start, end);
+    // Clip to selection boundaries using the range's own clamp
+    const startOffset = node === range.startContainer ? range.startOffset : 0;
+    const endOffset   = node === range.endContainer   ? range.endOffset   : text.length;
+    // For nodes that are neither start nor end container, only include if
+    // the node falls fully inside the range (not just an ancestor of an endpoint)
+    if (node !== range.startContainer && node !== range.endContainer) {
+      try {
+        // comparePoint: -1 = before range, 0 = inside, 1 = after range
+        const cmpStart = range.comparePoint(node, 0);
+        const cmpEnd   = range.comparePoint(node, text.length);
+        // Skip if node starts before range OR ends after range
+        if (cmpStart === -1 || cmpEnd === 1) return "";
+      } catch {
+        // comparePoint not supported (e.g. node in different document) — include it
+      }
+    }
+    return text.slice(startOffset, endOffset);
   }
 
   if (node.nodeType === Node.ELEMENT_NODE) {
@@ -39,7 +53,6 @@ function serializeInRange(node: Node, range: Range): string {
       if (annotation) {
         const tex = (annotation.textContent || "").trim();
         if (!tex) return "";
-        // No extra newlines — must match the raw markdown exactly
         return el.closest(".katex-display") ? `$$${tex}$$` : `$${tex}$`;
       }
       return "";
@@ -57,13 +70,15 @@ function serializeInRange(node: Node, range: Range): string {
 
 /**
  * Reconstruct the markdown source covered by `range`.
- * Walk from range.commonAncestorContainer (not the whole contentEl root)
- * so we only touch nodes actually within the selection.
- * Only used when the selection intersects KaTeX.
+ * MUST walk from contentEl (not range.commonAncestorContainer).
+ * When a selection lands inside .katex-html, commonAncestorContainer
+ * is a node *within* the visual span — the .katex wrapper with the
+ * annotation is only visible from the live tree above it.
+ * intersectsNode prunes branches outside the selection cheaply.
+ * (Appendix 3 of CONTRIBUTION-NOTES.md)
  */
-function extractSelectionSource(range: Range): string {
-  const root = range.commonAncestorContainer;
-  return serializeInRange(root, range).trim();
+function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
+  return serializeInRange(contentEl, range).trim();
 }
 
 /** Check whether a Selection intersects any .katex element */
@@ -254,7 +269,7 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
     const touchesKatex = selectionTouchesKatex(sel, contentEl);
     const domText = sel.toString().trim();
     const sourceText = touchesKatex
-      ? extractSelectionSource(range)
+      ? extractSelectionSource(contentEl, range)
       : domText;
     if (!sourceText || sourceText.length > 500) {
       setFloatingPos(null);
