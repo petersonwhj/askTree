@@ -10,35 +10,74 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// Selection source reconstruction  (CONTRIBUTION-NOTES.md Appendix 3)
+// KaTeX renders each formula as TWO sibling subtrees inside <span class="katex">:
+//   <span class="katex-mathml"><annotation>…LaTeX…</annotation></span>  (hidden)
+//   <span class="katex-html" aria-hidden>…visible glyphs…</span>
+// textContent and Selection.toString() scrape BOTH → duplicated garble.
 //
-// Selection.toString() returns garbled text for KaTeX formulas because it
-// scrapes BOTH the hidden MathML subtree AND the visible HTML glyphs.
-// Instead, walk the LIVE content DOM with the Range and, when we hit a
-// .katex wrapper, extract the original LaTeX from its
-//   <annotation encoding="application/x-tex">…</annotation>
-// and stop descending — this avoids the duplication entirely.
+// We therefore define ONE consistent "visible text" space that excludes the
+// hidden .katex-mathml subtree, and use it for: offset measurement, the stored
+// selection string, and highlight application. This keeps the rendered side
+// internally consistent. (Raw-markdown offsets are computed separately so the
+// badge/prompt can recover the original LaTeX.)
+// ---------------------------------------------------------------------------
+
+function isInsideKatexMathml(node: Node): boolean {
+  let el: Element | null =
+    node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  while (el) {
+    if (el.classList && el.classList.contains("katex-mathml")) return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/** Concatenated text of `root`, excluding hidden .katex-mathml subtrees. */
+function getVisibleText(root: Node): string {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let out = "";
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (isInsideKatexMathml(node)) continue;
+    out += node.textContent || "";
+  }
+  return out;
+}
+
+/** Offset of (target, targetOffset) within the *visible* text of `root`. */
+function visibleOffset(root: Node, target: Node, targetOffset: number): number {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node === target) {
+      return isInsideKatexMathml(node) ? offset : offset + targetOffset;
+    }
+    if (isInsideKatexMathml(node)) continue;
+    offset += node.textContent?.length || 0;
+  }
+  return offset;
+}
+
+// ---------------------------------------------------------------------------
+// LaTeX source reconstruction for KaTeX selections (raw-offset matching only)
 // ---------------------------------------------------------------------------
 
 function serializeInRange(node: Node, range: Range): string {
   if (!range.intersectsNode(node)) return "";
 
   if (node.nodeType === Node.TEXT_NODE) {
+    if (isInsideKatexMathml(node)) return ""; // handled by .katex below
     const text = node.textContent || "";
-    // Clip to selection boundaries using the range's own clamp
     const startOffset = node === range.startContainer ? range.startOffset : 0;
     const endOffset   = node === range.endContainer   ? range.endOffset   : text.length;
-    // For nodes that are neither start nor end container, only include if
-    // the node falls fully inside the range (not just an ancestor of an endpoint)
     if (node !== range.startContainer && node !== range.endContainer) {
       try {
-        // comparePoint: -1 = before range, 0 = inside, 1 = after range
         const cmpStart = range.comparePoint(node, 0);
         const cmpEnd   = range.comparePoint(node, text.length);
-        // Skip if node starts before range OR ends after range
         if (cmpStart === -1 || cmpEnd === 1) return "";
       } catch {
-        // comparePoint not supported (e.g. node in different document) — include it
+        // comparePoint unsupported — include node
       }
     }
     return text.slice(startOffset, endOffset);
@@ -46,8 +85,6 @@ function serializeInRange(node: Node, range: Range): string {
 
   if (node.nodeType === Node.ELEMENT_NODE) {
     const el = node as Element;
-
-    // KaTeX wrapper — emit annotation LaTeX ONCE, don't descend
     if (el.classList.contains("katex")) {
       const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
       if (annotation) {
@@ -57,7 +94,6 @@ function serializeInRange(node: Node, range: Range): string {
       }
       return "";
     }
-
     let result = "";
     for (let i = 0; i < node.childNodes.length; i++) {
       result += serializeInRange(node.childNodes[i], range);
@@ -68,29 +104,18 @@ function serializeInRange(node: Node, range: Range): string {
   return "";
 }
 
-/**
- * Reconstruct the markdown source covered by `range`.
- * MUST walk from contentEl (not range.commonAncestorContainer).
- * When a selection lands inside .katex-html, commonAncestorContainer
- * is a node *within* the visual span — the .katex wrapper with the
- * annotation is only visible from the live tree above it.
- * intersectsNode prunes branches outside the selection cheaply.
- * (Appendix 3 of CONTRIBUTION-NOTES.md)
- */
+/** Reconstruct the markdown source (with LaTeX) covered by `range`. */
 function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
   return serializeInRange(contentEl, range).trim();
 }
 
-/** Check whether a Selection intersects any .katex element */
 function selectionTouchesKatex(sel: Selection, contentEl: HTMLElement): boolean {
   const range = sel.getRangeAt(0);
-  // Quick check: does the range's common ancestor contain .katex?
   let ancestor: Node | null = range.commonAncestorContainer;
   while (ancestor && ancestor !== contentEl) {
     if (ancestor instanceof Element && ancestor.classList.contains("katex")) return true;
     ancestor = ancestor.parentNode;
   }
-  // Broader: walk .katex elements and check intersection
   const katexEls = contentEl.querySelectorAll(".katex");
   for (const el of katexEls) {
     if (range.intersectsNode(el)) return true;
@@ -99,7 +124,7 @@ function selectionTouchesKatex(sel: Selection, contentEl: HTMLElement): boolean 
 }
 
 // ---------------------------------------------------------------------------
-// Highlight
+// Highlight — walks the SAME visible-text space (skips .katex-mathml)
 // ---------------------------------------------------------------------------
 
 function applyHighlight(root: HTMLElement, start: number, end: number) {
@@ -108,6 +133,7 @@ function applyHighlight(root: HTMLElement, start: number, end: number) {
   const targets: Array<{ node: Text; s: number; e: number }> = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
+    if (isInsideKatexMathml(node)) continue; // consistent with visible-text space
     const len = node.textContent?.length || 0;
     const nodeStart = offset;
     const nodeEnd = offset + len;
@@ -137,18 +163,7 @@ function applyHighlight(root: HTMLElement, start: number, end: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Offset helpers (rendered DOM)
-// ---------------------------------------------------------------------------
-
-function getTextOffset(container: Node, targetNode: Node, targetOffset: number): number {
-  const range = document.createRange();
-  range.setStart(container, 0);
-  range.setEnd(targetNode, targetOffset);
-  return range.toString().length;
-}
-
-// ---------------------------------------------------------------------------
-// Coordinate mapping
+// Coordinate mapping (rendered visible-text ↔ raw markdown)
 // ---------------------------------------------------------------------------
 
 function findClosestOccurrence(
@@ -158,13 +173,10 @@ function findClosestOccurrence(
   refPos: number,
 ): number {
   if (!needle) return -1;
-  const approx = refLen > 0
-    ? Math.round((refPos / refLen) * haystack.length)
-    : 0;
+  const approx = refLen > 0 ? Math.round((refPos / refLen) * haystack.length) : 0;
   let bestIdx = -1;
   let bestDist = Infinity;
   let searchFrom = 0;
-
   while (true) {
     const idx = haystack.indexOf(needle, searchFrom);
     if (idx === -1) break;
@@ -175,20 +187,20 @@ function findClosestOccurrence(
     }
     searchFrom = idx + 1;
   }
-
   return bestIdx;
 }
 
+/** Map visible-rendered offsets → raw-markdown offsets via the LaTeX/text source. */
 function renderedToRawOffsets(
   rawContent: string,
   renderedText: string,
   renderedStart: number,
   renderedEnd: number,
-  selectedText: string,
+  sourceText: string,
 ): { start: number; end: number } {
-  const rawIdx = findClosestOccurrence(rawContent, selectedText, renderedText.length, renderedStart);
+  const rawIdx = findClosestOccurrence(rawContent, sourceText, renderedText.length, renderedStart);
   if (rawIdx >= 0) {
-    return { start: rawIdx, end: rawIdx + selectedText.length };
+    return { start: rawIdx, end: rawIdx + sourceText.length };
   }
   const rLen = renderedText.length || 1;
   return {
@@ -197,6 +209,7 @@ function renderedToRawOffsets(
   };
 }
 
+/** Map raw-markdown offsets → visible-rendered offsets via the stored visible text. */
 function rawToRenderedOffsets(
   rawContent: string,
   renderedText: string,
@@ -233,7 +246,9 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
         let displayEnd = highlight.end;
 
         if (highlight.text) {
-          const renderedText = contentRef.current.textContent || "";
+          // Map stored raw offsets → visible-rendered offsets using stored
+          // visible text. renderedText excludes hidden MathML for consistency.
+          const renderedText = getVisibleText(contentRef.current);
           const pos = rawToRenderedOffsets(
             content, renderedText, highlight.start, highlight.end, highlight.text,
           );
@@ -264,43 +279,37 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       return;
     }
 
-    // For KaTeX selections: reconstruct real LaTeX source  (Appendix 3)
-    // For plain prose: use sel.toString() — fast, reliable, unchanged
-    const touchesKatex = selectionTouchesKatex(sel, contentEl);
-    const domText = sel.toString().trim();
-    const sourceText = touchesKatex
-      ? extractSelectionSource(contentEl, range)
-      : domText;
-    if (!sourceText || sourceText.length > 500) {
+    // Visible-text space: consistent for storage + highlight (skips MathML)
+    const visibleText = getVisibleText(contentEl);
+    const a = visibleOffset(contentEl, sel.anchorNode, sel.anchorOffset);
+    const b = visibleOffset(contentEl, sel.focusNode, sel.focusOffset);
+    const rStart = Math.min(a, b);
+    const rEnd = Math.max(a, b);
+
+    // domVisible is GUARANTEED to be a substring of visibleText (it's a slice),
+    // so highlight re-matching can never drift.
+    const domVisible = visibleText.slice(rStart, rEnd).trim();
+    if (!domVisible || domVisible.length > 500) {
       setFloatingPos(null);
       setSelectionRange(null);
       return;
     }
 
-    const rect = range.getBoundingClientRect();
+    // For raw-offset mapping we need a string that exists in the RAW markdown.
+    // KaTeX selection → reconstruct LaTeX; plain prose → the visible text.
+    const touchesKatex = selectionTouchesKatex(sel, contentEl);
+    const sourceText = touchesKatex ? extractSelectionSource(contentEl, range) : domVisible;
 
+    const rect = range.getBoundingClientRect();
     setFloatingPos({
-      text: domText.slice(0, 50),
+      text: domVisible.slice(0, 50),
       top: rect.bottom + 4,
       left: rect.left + rect.width / 2 - 60,
     });
 
-    try {
-      const renderedStart = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
-      const renderedEnd   = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
-      const rStart = Math.min(renderedStart, renderedEnd);
-      const rEnd   = Math.max(renderedStart, renderedEnd);
-      const renderedText = contentEl.textContent || "";
-
-    // Use sourceText for offset mapping only (LaTeX matches raw markdown exactly).
-    // Store domText as the selection text — highlight walks rendered DOM and
-    // needs DOM text to locate the span via rawToRenderedOffsets.
-    const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, sourceText);
-    setSelectionRange({ text: domText, start: raw.start, end: raw.end });
-    } catch {
-      const s = content.indexOf(sourceText);
-      setSelectionRange({ text: sourceText, start: s, end: s >= 0 ? s + sourceText.length : 0 });
-    }
+    const raw = renderedToRawOffsets(content, visibleText, rStart, rEnd, sourceText || domVisible);
+    // Store domVisible for the highlight path; offsets index the raw markdown.
+    setSelectionRange({ text: domVisible, start: raw.start, end: raw.end });
   }, [content]);
 
   useEffect(() => {
