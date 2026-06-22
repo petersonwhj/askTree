@@ -184,11 +184,10 @@ body {
   font-size: 12px; color: #e2b714; background: #e2b71420;
   padding: 4px 10px; border-radius: 4px; align-self: flex-start;
   max-width: 100%; line-height: 1.6;
-  white-space: pre-wrap;       /* preserve line breaks, still wrap long lines */
-  word-break: break-word;      /* don't overflow on long tokens / URLs */
   max-height: 4.5em;           /* clamp long selections */
   overflow-y: auto;
 }
+.context-badge .katex { font-size: 1em; }
 
 .context-label {
   font-size: 12px; color: #484f58; align-self: flex-start;

@@ -9,10 +9,64 @@ interface Props {
   onTextSelected: (text: string, startPos: number, endPos: number) => void;
 }
 
-/**
- * Walk text nodes and wrap each overlapping slice in a <mark>.
- * Per-node ranges avoid cross-element surroundContents failures.
- */
+// ---------------------------------------------------------------------------
+// Selection source reconstruction  (CONTRIBUTION-NOTES.md Appendix 3)
+//
+// Selection.toString() returns garbled text for KaTeX formulas because it
+// scrapes BOTH the hidden MathML subtree AND the visible HTML glyphs.
+// Instead, walk the LIVE content DOM with the Range and, when we hit a
+// .katex wrapper, extract the original LaTeX from its
+//   <annotation encoding="application/x-tex">…</annotation>
+// and stop descending — this avoids the duplication entirely.
+// ---------------------------------------------------------------------------
+
+function serializeInRange(node: Node, range: Range): string {
+  if (!range.intersectsNode(node)) return "";
+
+  // Text node — clip to selection boundaries
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent || "";
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end   = node === range.endContainer   ? range.endOffset   : text.length;
+    return text.slice(start, end);
+  }
+
+  // Element node
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as Element;
+
+    // KaTeX wrapper — emit annotation LaTeX ONCE, do NOT descend into
+    // .katex-mathml / .katex-html (that's where the duplication lives)
+    if (el.classList.contains("katex")) {
+      const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+      if (annotation) {
+        const tex = (annotation.textContent || "").trim();
+        if (!tex) return "";
+        return el.closest(".katex-display") ? `$$\n${tex}\n$$` : `$${tex}$`;
+      }
+      return ""; // partial formula — skip rather than emit garbage
+    }
+
+    // Recurse into children
+    let result = "";
+    for (let i = 0; i < node.childNodes.length; i++) {
+      result += serializeInRange(node.childNodes[i], range);
+    }
+    return result;
+  }
+
+  return "";
+}
+
+/** Reconstruct the markdown source covered by `range` in the live DOM. */
+function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
+  return serializeInRange(contentEl, range).trim();
+}
+
+// ---------------------------------------------------------------------------
+// Highlight
+// ---------------------------------------------------------------------------
+
 function applyHighlight(root: HTMLElement, start: number, end: number) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let offset = 0;
@@ -42,12 +96,15 @@ function applyHighlight(root: HTMLElement, start: number, end: number) {
       mark.className = "asktree-highlight";
       range.surroundContents(mark);
     } catch {
-      // Node boundary changed (e.g. Katex re-render) — skip this node
+      // Node boundary changed — skip
     }
   }
 }
 
-/** Offset in the rendered DOM text for a given node + offset within it */
+// ---------------------------------------------------------------------------
+// Offset helpers (rendered DOM)
+// ---------------------------------------------------------------------------
+
 function getTextOffset(container: Node, targetNode: Node, targetOffset: number): number {
   const range = document.createRange();
   range.setStart(container, 0);
@@ -55,20 +112,10 @@ function getTextOffset(container: Node, targetNode: Node, targetOffset: number):
   return range.toString().length;
 }
 
-/** Full rendered text length from a container */
-function getRenderedLength(container: Node): number {
-  const range = document.createRange();
-  range.setStart(container, 0);
-  range.setEnd(container, container.childNodes.length);
-  return range.toString().length;
-}
+// ---------------------------------------------------------------------------
+// Coordinate mapping
+// ---------------------------------------------------------------------------
 
-/**
- * Bridge function for both mapping directions.
- * Find the occurrence of `needle` in `haystack` whose position is
- * proportionally closest to `refPos / refLen`.  Returns -1 when no
- * exact match exists (e.g. math formatting chars differ).
- */
 function findClosestOccurrence(
   haystack: string,
   needle: string,
@@ -97,14 +144,6 @@ function findClosestOccurrence(
   return bestIdx;
 }
 
-/**
- * Map rendered-text offsets → raw-markdown offsets.
- * Uses the text string as the primary bridge; the proportional position
- * from the other system is only a tie-breaker for repeats.
- * Falls back to a two-point proportional estimate when the text cannot
- * be located (e.g. the selection spans LaTeX math whose rendered glyphs
- * differ from the raw `\$…\$` syntax).
- */
 function renderedToRawOffsets(
   rawContent: string,
   renderedText: string,
@@ -116,8 +155,6 @@ function renderedToRawOffsets(
   if (rawIdx >= 0) {
     return { start: rawIdx, end: rawIdx + selectedText.length };
   }
-
-  // Exact match failed — two-point proportional fallback
   const rLen = renderedText.length || 1;
   return {
     start: Math.round((renderedStart / rLen) * rawContent.length),
@@ -125,10 +162,6 @@ function renderedToRawOffsets(
   };
 }
 
-/**
- * Map raw-markdown offsets → rendered-text offsets (reverse direction).
- * Same text-first / proportional-fallback strategy.
- */
 function rawToRenderedOffsets(
   rawContent: string,
   renderedText: string,
@@ -140,14 +173,16 @@ function rawToRenderedOffsets(
   if (renderedIdx >= 0) {
     return { start: renderedIdx, end: renderedIdx + storedText.length };
   }
-
-  // Exact match failed — two-point proportional fallback
   const rLen = rawContent.length || 1;
   return {
     start: Math.round((rawStart / rLen) * renderedText.length),
     end:   Math.round((rawEnd   / rLen) * renderedText.length),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -187,8 +222,16 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
     }
 
     const range = sel.getRangeAt(0);
-    const text = sel.toString().trim();
-    if (!text || text.length > 500) {
+    const contentEl = contentRef.current;
+    if (!contentEl || !sel.anchorNode || !sel.focusNode) {
+      setFloatingPos(null);
+      setSelectionRange(null);
+      return;
+    }
+
+    // Reconstruct markdown source from the live DOM  (Appendix 3)
+    const sourceText = extractSelectionSource(contentEl, range);
+    if (!sourceText || sourceText.length > 500) {
       setFloatingPos(null);
       setSelectionRange(null);
       return;
@@ -196,28 +239,28 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
 
     const rect = range.getBoundingClientRect();
 
+    // Show human-readable DOM text in the floating button
+    const displayText = sel.toString().trim().slice(0, 50);
     setFloatingPos({
-      text,
+      text: displayText,
       top: rect.bottom + 4,
       left: rect.left + rect.width / 2 - 60,
     });
 
-    const contentEl = contentRef.current;
-    if (contentEl && sel.anchorNode && sel.focusNode) {
-      try {
-        const renderedStart = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
-        const renderedEnd   = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
-        const rStart = Math.min(renderedStart, renderedEnd);
-        const rEnd   = Math.max(renderedStart, renderedEnd);
-        const renderedText = contentEl.textContent || "";
+    try {
+      const renderedStart = getTextOffset(contentEl, sel.anchorNode, sel.anchorOffset);
+      const renderedEnd   = getTextOffset(contentEl, sel.focusNode, sel.focusOffset);
+      const rStart = Math.min(renderedStart, renderedEnd);
+      const rEnd   = Math.max(renderedStart, renderedEnd);
+      const renderedText = contentEl.textContent || "";
 
-        const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, text);
-        setSelectionRange({ text, start: raw.start, end: raw.end });
-      } catch {
-        // Last resort: search in raw content directly
-        const s = content.indexOf(text);
-        setSelectionRange({ text, start: s, end: s >= 0 ? s + text.length : 0 });
-      }
+      // sourceText now contains real LaTeX → findClosestOccurrence locates it
+      const raw = renderedToRawOffsets(content, renderedText, rStart, rEnd, sourceText);
+      setSelectionRange({ text: sourceText, start: raw.start, end: raw.end });
+    } catch {
+      // Last resort: search in raw content directly
+      const s = content.indexOf(sourceText);
+      setSelectionRange({ text: sourceText, start: s, end: s >= 0 ? s + sourceText.length : 0 });
     }
   }, [content]);
 

@@ -128,8 +128,17 @@ export function DualPanel() {
     const askedEnd = selectedText?.end || 0;
     setSelectedText(null);
 
+    // Appendix 2: don't hard-truncate when $ is present (avoids unbalanced delimiter)
+    // Appendix 4: put selection on its own paragraph so $$ $$ display math parses
+    const selectionPara = askedText
+      ? askedText.includes("$")
+        ? askedText // keep whole, don't risk cutting a formula
+        : askedText.slice(0, 500)
+      : "";
     const placeholder = `> **Question:** ${question}\n\n` +
-      (askedText ? `> About: "${askedText.slice(0, 80)}"\n\n` : "") +
+      (selectionPara
+        ? `**About this selection:**\n\n${selectionPara}\n\n`
+        : "") +
       `⏳ Analyzing...`;
 
     let childNode: Node;

@@ -1,12 +1,25 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { renderMarkdown } from "../lib/markdown";
 
 interface Props { contextText: string | null; onSend: (question: string) => void; isLoading: boolean; }
 
 const MAX_ROWS = 10;
 
+/** Balance inline-math `$` delimiters for partial-selection edge cases. */
+function balanceMath(text: string): string {
+  const n = (text.match(/\$/g) || []).length;
+  return n % 2 === 0 ? text : text + "$";
+}
+
 export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // contextText is now real markdown source (with LaTeX) from extractSelectionSource
+  const contextHtml = useMemo(() => {
+    if (!contextText) return null;
+    return renderMarkdown(balanceMath(contextText));
+  }, [contextText]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -34,8 +47,10 @@ export function QuestionInputBar({ contextText, onSend, isLoading }: Props) {
 
   return (
     <div className="question-input-bar">
-      {contextText ? (
-        <div className="context-badge" title={contextText}>{contextText}</div>
+      {contextHtml ? (
+        <div className="context-badge" title={contextText || ""}>
+          <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
+        </div>
       ) : (
         <span className="context-label">Free ask</span>
       )}
