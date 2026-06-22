@@ -3,7 +3,7 @@ import { useTree } from "../hooks/useTree";
 import type { Node } from "@asktree/core";
 
 export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
-  const { store, activePath, focusNode, resetTree } = useTree();
+  const { store, activePath, focusNode, resetTree, removeNode } = useTree();
   const currentId = activePath[activePath.length - 1]?.id;
   const root = (() => { try { return store.getRoot(); } catch { return null; } })();
 
@@ -19,9 +19,9 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
     if (isRoot) {
       resetTree();
     } else {
-      store.removeNode(node.id).catch(() => {});
+      removeNode(node.id);
     }
-  }, [root, resetTree, store]);
+  }, [root, resetTree, removeNode]);
 
   const renderNode = (node: Node, depth: number): React.ReactNode => {
     const isActive = node.id === currentId;

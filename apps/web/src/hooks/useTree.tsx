@@ -13,6 +13,7 @@ interface TreeContextValue {
   resetTree: () => Promise<void>;
   addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
   updateStatus: (nodeId: string, status: Node["status"]) => void;
+  removeNode: (nodeId: string) => Promise<void>;
   selectedText: { text: string; start: number; end: number; nodeId: string } | null;
   setSelectedText: (s: TreeContextValue["selectedText"]) => void;
   importBundle: (bundle: ExportBundle) => Promise<void>;
@@ -109,6 +110,18 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const removeNode = useCallback(async (nodeId: string) => {
+    await storeRef.current.removeNode(nodeId);
+    // If the deleted node is in the active path, navigate up to its parent
+    setActivePath((prev) => {
+      const idx = prev.findIndex((n) => n.id === nodeId);
+      if (idx === -1) return prev; // not in path, no change
+      // Trim path to the node before the deleted one; if that leaves empty, clear
+      const trimmed = prev.slice(0, idx);
+      return trimmed.length > 0 ? trimmed : [];
+    });
+  }, []);
+
   const importBundleFn = useCallback(async (bundle: ExportBundle) => {
     const adapter = new IndexedDBStorageAdapter();
     const store = await TreeStore.importBundle(bundle, adapter);
@@ -124,7 +137,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   return (
     <TreeContext.Provider value={{
         store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
-        createRootTree, resetTree, addChildNode, updateStatus, selectedText, setSelectedText,
+        createRootTree, resetTree, addChildNode, updateStatus, removeNode, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
     }}>
       {children}
