@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { TreeStore, LLMService, DEFAULT_PROMPT_CONFIG, type Node, type Edge, type ExportBundle, type PromptConfig } from "@asktree/core";
 import { IndexedDBStorageAdapter } from "../storage/indexeddb-adapter";
-import { migratePromptConfig } from "../lib/prompt-config";
 
 interface TreeContextValue {
   store: TreeStore;
@@ -35,7 +34,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   const [promptConfig, setPromptConfig] = useState<PromptConfig>(() => {
     try {
       const saved = localStorage.getItem("asktree_prompt_config");
-      if (saved) return migratePromptConfig(JSON.parse(saved));
+      if (saved) return JSON.parse(saved);
     } catch {}
     return DEFAULT_PROMPT_CONFIG;
   });
