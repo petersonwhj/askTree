@@ -70,14 +70,50 @@ export async function collectContext(
       }
     }
 
-    const surrounding = selectedText
-      ? cutSurrounding(content, startPos, endPos, radius)
-      : content.slice(0, radius * 2);
+    let surrounding: string;
+    if (selectedText) {
+      surrounding = cutSurrounding(content, startPos, endPos, radius);
+    } else if (depth === 0) {
+      // Free ask (no selection): load the full focused passage as context.
+      surrounding = content;
+    } else {
+      surrounding = content.slice(0, radius * 2);
+    }
 
     slices.push({ nodeTitle: node.title, selectedText, surrounding, depth });
   }
 
   return slices;
+}
+
+/**
+ * Prompt used by the "help me ask" feature: turn the focused passage (or the
+ * highlighted selection) into a few questions that surface its hard points.
+ */
+export const SUGGEST_TEMPLATE = `System: You are a study assistant. A learner is reading the passage below but is stuck and cannot formulate a question. Identify what is hardest to understand and propose exactly 3 short, specific questions that would genuinely help the learner understand it. Output only the 3 questions, one per line, with no numbering, bullets, or extra commentary. Reply in the same language as the passage.
+
+User:
+The learner is focused on "{selected_text}".
+
+---
+{surrounding_text}
+---
+
+{ancestors}`;
+
+/** Pull up to `max` questions out of a model reply, tolerating list/quote noise. */
+export function parseSuggestedQuestions(text: string, max = 3): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const rawLine of (text || "").split(/\r?\n/)) {
+    let line = rawLine.trim().replace(/^(?:[-*•]|\d+\s*[.)、:：])\s*/, "").trim();
+    line = line.replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").trim();
+    if (!line || line.length > 300 || seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 export function renderPrompt(
@@ -92,8 +128,19 @@ export function renderPrompt(
     .map((s) => `[${s.nodeTitle}]\n${s.surrounding}`)
     .join("\n\n");
 
-  let text = template
-    .replaceAll("{selected_text}", directSlice?.selectedText || "this section")
+  const selectedText = directSlice?.selectedText || "";
+  let base = template;
+  if (!selectedText) {
+    // Free ask: templates frame the question around a highlighted passage. With
+    // no selection that clause only confuses the model, so drop those lines.
+    base = base
+      .split(/\r?\n/)
+      .filter((line) => !line.includes("{selected_text}"))
+      .join("\n");
+  }
+
+  let text = base
+    .replaceAll("{selected_text}", selectedText || "this section")
     .replaceAll("{surrounding_text}", directSlice?.surrounding || "")
     .replaceAll("{ancestors}", ancestors || "(no broader context available)")
     .replaceAll("{user_question}", question)

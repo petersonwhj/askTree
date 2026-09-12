@@ -46,6 +46,18 @@ describe("renderPrompt", () => {
     expect(result.user).not.toContain("Leaf → Middle → Root");
   });
 
+  it("omits the highlighted-part clause for free-ask (no selection)", () => {
+    const result = renderPrompt(
+      [{ nodeTitle: "Article", selectedText: "", surrounding: "whole article text", depth: 0 }],
+      "Why?",
+      DEFAULT_PROMPT_CONFIG.template
+    );
+    expect(result.user).not.toContain("this section");
+    expect(result.user).not.toContain("highlighted part");
+    expect(result.user).toContain("whole article text");
+    expect(result.user).toContain("Why?");
+  });
+
   it("should use English fallback for empty ancestors", () => {
     const result = renderPrompt(
       [{ nodeTitle: "Article", selectedText: "xyz", surrounding: "text around xyz", depth: 0 }],

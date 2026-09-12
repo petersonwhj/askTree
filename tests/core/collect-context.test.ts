@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { renderPrompt } from "@asktree/core";
+import {
+  renderPrompt,
+  collectContext,
+  TreeStore,
+  InMemoryStorageAdapter,
+  DEFAULT_PROMPT_CONFIG,
+} from "@asktree/core";
 import type { ContextSlice } from "@asktree/core";
 
 // Since cutSurrounding is private, we test marker placement, word-boundary
@@ -78,5 +84,34 @@ describe("path_summary ordering", () => {
       TEMPLATE,
     );
     expect(result.user).toContain("I'm reading this article for the first time.");
+  });
+});
+
+describe("collectContext free-ask context", () => {
+  it("includes the full focused passage when there is no selection", async () => {
+    const store = new TreeStore(new InMemoryStorageAdapter());
+    const article = "字".repeat(1000);
+    const root = await store.createTree(article, "Article");
+
+    const slices = await collectContext(root.id, null, store, DEFAULT_PROMPT_CONFIG);
+
+    expect(slices[0].depth).toBe(0);
+    expect(slices[0].surrounding).toBe(article);
+  });
+
+  it("still trims surrounding to the selection when one exists", async () => {
+    const store = new TreeStore(new InMemoryStorageAdapter());
+    const article = "前".repeat(500) + "SELECTED" + "后".repeat(500);
+    const root = await store.createTree(article, "Article");
+
+    const slices = await collectContext(
+      root.id,
+      { start: 500, end: 508, text: "SELECTED" },
+      store,
+      DEFAULT_PROMPT_CONFIG,
+    );
+
+    expect(slices[0].surrounding).toContain("«SELECTED»");
+    expect(slices[0].surrounding.length).toBeLessThan(article.length);
   });
 });

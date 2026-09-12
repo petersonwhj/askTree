@@ -1,12 +1,80 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
-import { QuestionInputBar } from "./QuestionInputBar";
+import { QuestionInputBar, type AskTarget } from "./QuestionInputBar";
 import { PromptDebugModal } from "./PromptDebugModal";
-import { collectContext, renderPrompt } from "@asktree/core";
+import { saveTextFile } from "../lib/save-file";
+import { sanitizeFilename } from "../lib/filename";
+import {
+  collectContext,
+  renderPrompt,
+  SUGGEST_TEMPLATE,
+  parseSuggestedQuestions,
+} from "@asktree/core";
 import type { Node } from "@asktree/core";
 
-export function DualPanel() {
+function copyMarkdown(content: string | null) {
+  if (content == null) return;
+  navigator.clipboard.writeText(content).catch(() => {});
+}
+
+function downloadMarkdown(content: string | null, title: string) {
+  if (content == null) return;
+  void saveTextFile(content, {
+    suggestedName: `${sanitizeFilename(title)}.md`,
+    description: "Markdown",
+    mimeType: "text/markdown",
+    extensions: [".md"],
+  });
+}
+
+function MarkdownActions({ content, title }: { content: string | null; title: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (content == null) return;
+    copyMarkdown(content);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    <>
+      <button
+        className={`panel-icon-btn${copied ? " copied" : ""}`}
+        aria-label={copied ? "Copied" : "Copy markdown"}
+        title={copied ? "Copied!" : "Copy markdown"}
+        onClick={handleCopy}
+        disabled={content == null}
+      >
+        {copied ? (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8.5l3.2 3.2L13 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3.5A1.5 1.5 0 0 0 2 3v5.5A1.5 1.5 0 0 0 3.5 10h.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+        )}
+      </button>
+      <button
+        className="panel-icon-btn"
+        aria-label="Download markdown"
+        title="Download .md"
+        onClick={() => downloadMarkdown(content, title)}
+        disabled={content == null}
+      >
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 2v7m0 0 2.5-2.5M8 9 5.5 6.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M2.5 11.5v1A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      </button>
+    </>
+  );
+}
+
+export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     store, llm, activePath, selectedText, setSelectedText,
     addChildNode, updateStatus, promptConfig, createRootTree, navigateTo, focusNode, navigateUp,
@@ -20,6 +88,7 @@ export function DualPanel() {
   const [newContent, setNewContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [debugNodeId, setDebugNodeId] = useState<string | null>(null);
+  const [freeAskTarget, setFreeAskTarget] = useState<AskTarget>("right");
 
   const currentNode = activePath[activePath.length - 1];
   const parentNode = activePath.length >= 2 ? activePath[activePath.length - 2] : currentNode;
@@ -51,6 +120,15 @@ export function DualPanel() {
     if (start < 0 || end <= start || start >= parentContent.length) return null;
     return parentContent.slice(start, Math.min(end, parentContent.length));
   }, [selectedText, parentContent]);
+
+  const selectionSide: "left" | "right" | null =
+    selectedText && currentNode
+      ? selectedText.nodeId === parentNode.id
+        ? "left"
+        : selectedText.nodeId === currentNode.id
+          ? "right"
+          : null
+      : null;
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -132,7 +210,9 @@ export function DualPanel() {
 
   const handleSendQuestion = async (question: string) => {
     setError(null);
-    const questionedNodeId = selectedText?.nodeId || currentNode.id;
+    const questionedNodeId =
+      selectedText?.nodeId ||
+      (freeAskTarget === "left" ? parentNode.id : currentNode.id);
     const askedText = selectedText?.text || "";
     const askedStart = selectedText?.start || 0;
     const askedEnd = selectedText?.end || 0;
@@ -206,13 +286,47 @@ export function DualPanel() {
     setSelectedText({ text, start, end, nodeId });
   };
 
+  // "Help me ask": propose questions about the current passage (or selection).
+  const requestSuggestions = async (): Promise<string[]> => {
+    if (!llm.getConfig?.()) {
+      throw new Error("LLM not configured. Open Settings to choose a provider.");
+    }
+    const targetId =
+      selectedText?.nodeId ||
+      (freeAskTarget === "left" ? parentNode.id : currentNode.id);
+    const selection = selectedText
+      ? { start: selectedText.start, end: selectedText.end, text: selectedText.text }
+      : null;
+
+    const slices = await collectContext(targetId, selection, store, promptConfig);
+    const rendered = renderPrompt(slices, "", SUGGEST_TEMPLATE);
+    const raw = await llm.ask({
+      question: "",
+      contextSlices: slices,
+      system: rendered.system,
+      user: rendered.user,
+    });
+    return parseSuggestedQuestions(raw);
+  };
+
   return (
     <>
     <div className="dual-panel">
       <div className="panel" style={{ width: `${splitRatio}%`, flex: "none" }}>
         <div className="panel-header">
           <span className="node-type">
-            {parentNode.type === "article" ? "📖" : "❓"}{" "}
+            {parentNode.parentId ? (
+              <button
+                onClick={() => setDebugNodeId(parentNode.id)}
+                className="prompt-debug-btn"
+                aria-label="Show prompt debug"
+                title="Show prompt debug"
+              >
+                ?
+              </button>
+            ) : (
+              parentNode.type === "article" ? "📖" : "❓"
+            )}{" "}
             <span className="panel-title" title={parentNode.title}>{parentNode.title}</span>
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -233,6 +347,7 @@ export function DualPanel() {
                 →
               </button>
             )}
+            <MarkdownActions content={parentContent} title={parentNode.title} />
             <select
               value={parentNode.status}
               onChange={(e) => { updateStatus(parentNode.id, e.target.value as "resolved" | "question"); }}
@@ -269,17 +384,18 @@ export function DualPanel() {
           <>
             <div className="panel-header">
               <span className="node-type">
-                ❓ <span className="panel-title" title={currentNode.title}>{currentNode.title}</span>
-              </span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
                   onClick={() => setDebugNodeId(currentNode.id)}
-                  className="close-panel-btn"
+                  className="prompt-debug-btn"
+                  aria-label="Show prompt debug"
                   title="Show prompt debug"
-                  style={{ fontFamily: "monospace", fontWeight: "bold" }}
                 >
                   ?
-                </button>
+                </button>{" "}
+                <span className="panel-title" title={currentNode.title}>{currentNode.title}</span>
+              </span>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <MarkdownActions content={childContent} title={currentNode.title} />
                 <button
                   onClick={() => navigateUp()}
                   className="close-panel-btn"
@@ -321,6 +437,12 @@ export function DualPanel() {
           rawText={displayRawText}
           onSend={handleSendQuestion}
           isLoading={false}
+          freeAskTarget={freeAskTarget}
+          onFreeAskTargetChange={setFreeAskTarget}
+          showFreeAskTarget={activePath.length > 1}
+          contextSide={selectionSide}
+          onRequestSuggestions={requestSuggestions}
+          onOpenSettings={onOpenSettings}
         />
       </div>
     </div>

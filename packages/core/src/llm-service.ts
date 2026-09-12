@@ -2,9 +2,8 @@ import type { LLMConfig, AskOptions } from "./types";
 import { askOllama } from "./llm/ollama";
 import { askOpenAICompat } from "./llm/openai-compat";
 import { askAnthropic } from "./llm/anthropic";
-import { askGlean } from "./llm/glean";
 
-export type LLMProvider = "ollama" | "openai" | "anthropic" | "glean";
+export type LLMProvider = "ollama" | "openai" | "anthropic";
 
 export class LLMService {
   private config: LLMConfig | null = null;
@@ -32,8 +31,6 @@ export class LLMService {
         return askOpenAICompat(this.config, askOptions);
       case "anthropic":
         return askAnthropic(this.config, askOptions);
-      case "glean":
-        return askGlean(this.config, askOptions);
     }
   }
 

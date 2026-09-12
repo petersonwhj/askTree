@@ -16,7 +16,6 @@ function stripOriginHeaders(proxy: any) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, resolve(__dirname, "../.."), "");
   const llmProxyTarget = env.LLM_PROXY_TARGET;
-  const gleanProxyTarget = env.GLEAN_PROXY_TARGET;
 
   const proxy: Record<string, any> = {};
 
@@ -25,15 +24,6 @@ export default defineConfig(({ mode }) => {
       target: llmProxyTarget,
       changeOrigin: true,
       rewrite: (path: string) => path.replace(/^\/llm-[^/]*/, ""),
-      configure: stripOriginHeaders,
-    };
-  }
-
-  if (gleanProxyTarget) {
-    proxy["^/glean-proxy"] = {
-      target: gleanProxyTarget,
-      changeOrigin: true,
-      rewrite: (path: string) => path.replace(/^\/glean-proxy/, ""),
       configure: stripOriginHeaders,
     };
   }

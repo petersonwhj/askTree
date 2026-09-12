@@ -72,7 +72,7 @@ function AppContent() {
         )}
         <div className="app-main">
           <BreadcrumbBar />
-          <DualPanel />
+          <DualPanel onOpenSettings={() => setShowSettings(true)} />
         </div>
       </div>
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}

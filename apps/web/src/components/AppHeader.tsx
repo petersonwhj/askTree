@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import { ConfirmModal } from "./ConfirmModal";
+import { saveTextFile } from "../lib/save-file";
+import { sanitizeFilename } from "../lib/filename";
 
 interface Props { onSettings: () => void; onToggleSidebar: () => void; }
 
@@ -30,29 +32,14 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
     const bundle = await exportBundle();
     if (!bundle) return;
     const json = JSON.stringify(bundle, null, 2);
-
-    // Use File System Access API when available, fall back to blob download
-    if ("showSaveFilePicker" in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: "asktree-export.json",
-          types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(json);
-        await writable.close();
-        return;
-      } catch (e) {
-        if ((e as DOMException).name === "AbortError") return; // user cancelled
-      }
-    }
-    // Fallback to classic download
-    const blob = new Blob([json], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "asktree-export.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    let rootTitle = "asktree-tree";
+    try { rootTitle = store.getRoot().title; } catch {}
+    await saveTextFile(json, {
+      suggestedName: `${sanitizeFilename(rootTitle)}.json`,
+      description: "JSON",
+      mimeType: "application/json",
+      extensions: [".json"],
+    });
   };
 
   const handleLoadFile = useCallback(async (file: File) => {
@@ -103,7 +90,25 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
       <header className="app-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={onToggleSidebar}>☰</button>
-          <h1>AskTree</h1>
+          <h1 className="app-brand">
+            <svg
+              className="app-brand-icon"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path d="M12 11.4 L6.9 15.6 M12 11.4 L17.1 15.6" stroke="#58a6ff" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M12 2 L9.4 7.3 L14.6 7.3 Z" fill="#58a6ff" />
+              <circle cx="12" cy="8.9" r="3.3" fill="#58a6ff" />
+              <circle cx="6.4" cy="17.6" r="2.6" fill="#58a6ff" />
+              <circle cx="17.6" cy="17.6" r="2.6" fill="#79c0ff" />
+            </svg>
+            <span className="app-brand-text">
+              <span className="app-brand-ask">Ask</span><span className="app-brand-tree">Tree</span>
+            </span>
+          </h1>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={handleReset} disabled={!hasTree} title="Clear current tree">🧹</button>

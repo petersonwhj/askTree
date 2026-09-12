@@ -185,4 +185,87 @@ describe("MarkdownPane", () => {
     expect(end).toBeGreaterThan(start);
     expect(start).toBeGreaterThanOrEqual(0);
   });
+
+  it("maps a selection spanning inline emphasis to exact raw markdown offsets", async () => {
+    const onTextSelected = vi.fn();
+    const rawContent =
+      "前缀**重点**结尾。配置和分词器很小，但**必须一起下**，否则权重加载不了。";
+
+    const { container } = render(
+      <MarkdownPane content={rawContent} onTextSelected={onTextSelected} />
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+
+    const allText: Text[] = [];
+    const walker = document.createTreeWalker(contentDiv, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) allText.push(walker.currentNode as Text);
+
+    const startNode = allText.find((n) => n.textContent!.includes("配置和分词器"))!;
+    const endNode = allText[allText.length - 1];
+    const startOffset = startNode.textContent!.indexOf("配置和分词器");
+    const endOffset = endNode.textContent!.length;
+
+    const nodeStart = (n: Node): number => {
+      let o = 0;
+      for (const t of allText) {
+        if (t === n) return o;
+        o += t.textContent!.length;
+      }
+      return o;
+    };
+    const globalStart = nodeStart(startNode) + startOffset;
+    const globalEnd = nodeStart(endNode) + endOffset;
+
+    const mockRange = {
+      getBoundingClientRect: () => ({ x: 10, y: 20, width: 200, height: 16, top: 20, left: 10, right: 210, bottom: 36 }),
+      toString: () => "配置和分词器很小，但必须一起下，否则权重加载不了。",
+      cloneRange: () => mockRange,
+      startContainer: startNode,
+      startOffset,
+      endContainer: endNode,
+      endOffset,
+      collapsed: false,
+      commonAncestorContainer: contentDiv,
+      intersectsNode: (node: Node) => contentDiv.contains(node) || node === contentDiv,
+      comparePoint: (node: Node, offset: number) => {
+        const g = nodeStart(node) + offset;
+        return g < globalStart ? -1 : g > globalEnd ? 1 : 0;
+      },
+      setStart: () => {},
+      setEnd: () => {},
+    } as unknown as Range;
+
+    const mockSelection = {
+      isCollapsed: false,
+      toString: () => "配置和分词器很小，但必须一起下，否则权重加载不了。",
+      anchorNode: startNode,
+      anchorOffset: startOffset,
+      focusNode: endNode,
+      focusOffset: endOffset,
+      getRangeAt: () => mockRange,
+      removeAllRanges: vi.fn(),
+      containsNode: () => true,
+    };
+    vi.spyOn(window, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+
+    fireEvent.mouseUp(document);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const floating = container.querySelector(".floating-ask");
+    expect(floating).toBeTruthy();
+    fireEvent.mouseDown(floating!);
+
+    expect(onTextSelected).toHaveBeenCalledTimes(1);
+    const [, start, end] = onTextSelected.mock.calls[0];
+    expect(rawContent.slice(start, end)).toBe(
+      "配置和分词器很小，但**必须一起下**，否则权重加载不了。"
+    );
+  });
 });

@@ -1,0 +1,224 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { InMemoryStorageAdapter, TreeStore, DEFAULT_PROMPT_CONFIG } from "@asktree/core";
+import type { Node } from "@asktree/core";
+
+const mocks = vi.hoisted(() => ({
+  ctx: {} as Record<string, unknown>,
+}));
+
+vi.mock("../../hooks/useTree", () => ({
+  useTree: () => mocks.ctx,
+}));
+
+import { DualPanel } from "../DualPanel";
+
+describe("DualPanel prompt debug trigger", () => {
+  const question = "Explain more about hydration.";
+
+  beforeEach(async () => {
+    const store = new TreeStore(new InMemoryStorageAdapter());
+    const root = await store.createTree("hydration is key to interactivity.", "Hydration");
+    const child = await store.addChild(
+      root.id,
+      { selectedText: "hydration", startPos: 0, endPos: 9, question },
+      "Hydration is the process where a server-rendered page becomes interactive.",
+    );
+
+    mocks.ctx = {
+      store,
+      llm: {},
+      activePath: [root, child] as Node[],
+      selectedText: null,
+      setSelectedText: vi.fn(),
+      addChildNode: vi.fn(),
+      updateStatus: vi.fn(),
+      promptConfig: DEFAULT_PROMPT_CONFIG,
+      createRootTree: vi.fn(),
+      navigateTo: vi.fn(),
+      focusNode: vi.fn(),
+      navigateUp: vi.fn(),
+      isLoading: false,
+    };
+  });
+
+  it("places a ? trigger to the left of the page title and opens prompt debug", async () => {
+    const { container } = render(<DualPanel />);
+
+    const trigger = await screen.findByLabelText("Show prompt debug");
+    const title = trigger.parentElement?.querySelector(".panel-title") ?? null;
+
+    expect(title?.textContent).toBe(question);
+    // Trigger must come before the title in document order (left of it visually)
+    expect(
+      trigger.compareDocumentPosition(title!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(trigger);
+    await waitFor(() => expect(container.querySelector(".prompt-debug-question")?.textContent).toBe(question));
+  });
+
+  it("offers a working prompt debug trigger for a generated page shown in the left panel", async () => {
+    const store = new TreeStore(new InMemoryStorageAdapter());
+    const root = await store.createTree("root passage text", "Root");
+    const q1 = await store.addChild(
+      root.id,
+      { selectedText: "root", startPos: 0, endPos: 4, question: "Q1?" },
+      "first answer text",
+    );
+    const q2 = await store.addChild(
+      q1.id,
+      { selectedText: "first", startPos: 0, endPos: 5, question: "Q2?" },
+      "second answer text",
+    );
+    mocks.ctx = { ...mocks.ctx, store, activePath: [root, q1, q2] };
+
+    render(<DualPanel />);
+
+    let triggers: HTMLElement[] = [];
+    await waitFor(() => {
+      triggers = screen.getAllByLabelText("Show prompt debug");
+      expect(triggers).toHaveLength(2);
+    });
+
+    fireEvent.click(triggers[0]);
+    await waitFor(() =>
+      expect(document.querySelector(".prompt-debug-question")?.textContent).toBe("Q1?"),
+    );
+  });
+});
+
+describe("DualPanel panel actions and free-ask target", () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  let store: TreeStore;
+  let rootId: string;
+  let childId: string;
+
+  beforeEach(async () => {
+    store = new TreeStore(new InMemoryStorageAdapter());
+    const root = await store.createTree("root article markdown", "Root");
+    rootId = root.id;
+    const child = await store.addChild(
+      root.id,
+      { selectedText: "root", startPos: 0, endPos: 4, question: "Q1?" },
+      "first answer markdown",
+    );
+    childId = child.id;
+
+    writeText.mockReset();
+    writeText.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    mocks.ctx = {
+      store,
+      llm: { ask: vi.fn(() => new Promise(() => {})) },
+      activePath: [root, child] as Node[],
+      selectedText: null,
+      setSelectedText: vi.fn(),
+      addChildNode: vi.fn(),
+      updateStatus: vi.fn(),
+      promptConfig: DEFAULT_PROMPT_CONFIG,
+      createRootTree: vi.fn(),
+      navigateTo: vi.fn(),
+      focusNode: vi.fn(),
+      navigateUp: vi.fn(),
+      isLoading: false,
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("copies each panel's markdown source to the clipboard", async () => {
+    render(<DualPanel />);
+
+    await waitFor(() => expect(screen.getAllByLabelText("Copy markdown")).toHaveLength(2));
+    fireEvent.click(screen.getAllByLabelText("Copy markdown")[0]);
+
+    expect(writeText).toHaveBeenCalledWith("root article markdown");
+  });
+
+  it("downloads each panel's markdown as a .md file", async () => {
+    const createObjectURL = vi.fn(() => "blob:mock");
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    let downloadedName = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedName = this.download;
+    });
+
+    render(<DualPanel />);
+
+    await waitFor(() => expect(screen.getAllByLabelText("Download markdown")).toHaveLength(2));
+    fireEvent.click(screen.getAllByLabelText("Download markdown")[0]);
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(downloadedName).toBe("Root.md");
+  });
+
+  it("attaches a free-ask question to the left page when Left is selected", async () => {
+    render(<DualPanel />);
+    await waitFor(() => expect(screen.getAllByLabelText("Copy markdown")).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole("button", { name: /◀\s*left/i }));
+    fireEvent.change(screen.getByPlaceholderText(/ask anything/i), { target: { value: "free q" } });
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+
+    await waitFor(() => {
+      const root = store.getNode(rootId)!;
+      expect(root.children.some((e) => e.question === "free q")).toBe(true);
+    });
+  });
+
+  it("shows a green copied state on the Copy button after clicking", async () => {
+    render(<DualPanel />);
+    await waitFor(() => expect(screen.getAllByLabelText("Copy markdown")).toHaveLength(2));
+
+    fireEvent.click(screen.getAllByLabelText("Copy markdown")[0]);
+
+    await waitFor(() => {
+      const copied = document.querySelector(".panel-icon-btn.copied");
+      expect(copied).toBeTruthy();
+      expect(copied?.getAttribute("aria-label")).toBe("Copied");
+    });
+  });
+
+  it("labels a selection from the right panel", async () => {
+    mocks.ctx = {
+      ...mocks.ctx,
+      selectedText: { text: "hydration", start: 0, end: 9, nodeId: childId },
+    };
+    render(<DualPanel />);
+    expect(await screen.findByText("Right panel")).toBeTruthy();
+  });
+
+  it("labels a selection from the left panel", async () => {
+    mocks.ctx = {
+      ...mocks.ctx,
+      selectedText: { text: "root", start: 0, end: 4, nodeId: rootId },
+    };
+    render(<DualPanel />);
+    expect(await screen.findByText("Left panel")).toBeTruthy();
+  });
+
+  it("generates suggestions from the current context and asks a chosen one", async () => {
+    const ask = vi.fn().mockResolvedValue("1. Why?\n2. How?\n3. When?");
+    mocks.ctx = {
+      ...mocks.ctx,
+      llm: { ask, getConfig: () => ({ endpoint: "http://x", model: "m" }) },
+    };
+
+    render(<DualPanel />);
+    await waitFor(() => expect(screen.getAllByLabelText("Copy markdown")).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole("button", { name: /suggest a question/i }));
+    fireEvent.click(await screen.findByText("Why?"));
+
+    // Free-ask default target is the current (right) node.
+    await waitFor(() => {
+      const current = store.getNode(childId)!;
+      expect(current.children.some((e) => e.question === "Why?")).toBe(true);
+    });
+  });
+});

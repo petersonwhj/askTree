@@ -98,29 +98,32 @@ function serializeInRange(node: Node, range: Range): string {
     for (let i = 0; i < node.childNodes.length; i++) {
       result += serializeInRange(node.childNodes[i], range);
     }
-    return result;
+    // Reconstruct supported inline Markdown so the result can be found verbatim
+    // in the raw source (enables exact raw-offset mapping, not a proportional estimate).
+    switch (el.tagName) {
+      case "STRONG":
+      case "B":
+        return result ? `**${result}**` : "";
+      case "EM":
+      case "I":
+        return result ? `*${result}*` : "";
+      case "DEL":
+      case "S":
+        return result ? `~~${result}~~` : "";
+      case "CODE":
+        // Inline code only; fenced/indented blocks fall back to the visible-text candidate.
+        return !el.closest("pre") && result ? `\`${result}\`` : result;
+      default:
+        return result;
+    }
   }
 
   return "";
 }
 
-/** Reconstruct the markdown source (with LaTeX) covered by `range`. */
+/** Reconstruct the markdown source (with LaTeX and inline syntax) covered by `range`. */
 function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
   return serializeInRange(contentEl, range).trim();
-}
-
-function selectionTouchesKatex(sel: Selection, contentEl: HTMLElement): boolean {
-  const range = sel.getRangeAt(0);
-  let ancestor: Node | null = range.commonAncestorContainer;
-  while (ancestor && ancestor !== contentEl) {
-    if (ancestor instanceof Element && ancestor.classList.contains("katex")) return true;
-    ancestor = ancestor.parentNode;
-  }
-  const katexEls = contentEl.querySelectorAll(".katex");
-  for (const el of katexEls) {
-    if (range.intersectsNode(el)) return true;
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,17 +193,22 @@ function findClosestOccurrence(
   return bestIdx;
 }
 
-/** Map visible-rendered offsets → raw-markdown offsets via the LaTeX/text source. */
+/** Map visible-rendered offsets → raw-markdown offsets via reconstructed source text. */
 function renderedToRawOffsets(
   rawContent: string,
   renderedText: string,
   renderedStart: number,
   renderedEnd: number,
-  sourceText: string,
+  sourceTexts: string[],
 ): { start: number; end: number } {
-  const rawIdx = findClosestOccurrence(rawContent, sourceText, renderedText.length, renderedStart);
-  if (rawIdx >= 0) {
-    return { start: rawIdx, end: rawIdx + sourceText.length };
+  // Prefer an exact raw substring (reconstructed Markdown/LaTeX); order matters:
+  // the caller passes the richest candidate first.
+  for (const sourceText of sourceTexts) {
+    if (!sourceText) continue;
+    const rawIdx = findClosestOccurrence(rawContent, sourceText, renderedText.length, renderedStart);
+    if (rawIdx >= 0) {
+      return { start: rawIdx, end: rawIdx + sourceText.length };
+    }
   }
   const rLen = renderedText.length || 1;
   return {
@@ -295,10 +303,13 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       return;
     }
 
-    // For raw-offset mapping we need a string that exists in the RAW markdown.
-    // KaTeX selection → reconstruct LaTeX; plain prose → the visible text.
-    const touchesKatex = selectionTouchesKatex(sel, contentEl);
-    const sourceText = touchesKatex ? extractSelectionSource(contentEl, range) : domVisible;
+    // Reconstruct the raw source (LaTeX + supported inline Markdown) and try it
+    // first for an exact match. Fall back to the visible text (covers partial
+    // inline selections), then to a proportional estimate. Exact matches keep
+    // the badge/prompt offsets aligned with the article highlight.
+    const sourceText = extractSelectionSource(contentEl, range);
+    const candidates =
+      sourceText && sourceText !== domVisible ? [sourceText, domVisible] : [domVisible];
 
     const rect = range.getBoundingClientRect();
     setFloatingPos({
@@ -307,7 +318,7 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
       left: rect.left + rect.width / 2 - 60,
     });
 
-    const raw = renderedToRawOffsets(content, visibleText, rStart, rEnd, sourceText || domVisible);
+    const raw = renderedToRawOffsets(content, visibleText, rStart, rEnd, candidates);
     // Store domVisible for the highlight path; offsets index the raw markdown.
     setSelectionRange({ text: domVisible, start: raw.start, end: raw.end });
   }, [content]);

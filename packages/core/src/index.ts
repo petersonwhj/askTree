@@ -6,10 +6,8 @@ export { InMemoryStorageAdapter } from "./storage-adapter";
 
 export { TreeStore } from "./tree-store";
 
-export { collectContext, renderPrompt } from "./prompt";
+export { collectContext, renderPrompt, SUGGEST_TEMPLATE, parseSuggestedQuestions } from "./prompt";
 export type { SelectionInfo } from "./prompt";
 
 export { LLMService } from "./llm-service";
 export type { LLMProvider } from "./llm-service";
-
-export { buildGleanPayload, extractGleanAnswer } from "./llm/glean";

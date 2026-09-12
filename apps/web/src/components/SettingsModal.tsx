@@ -2,8 +2,15 @@ import { useState } from "react";
 import { useTree } from "../hooks/useTree";
 import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 
-type Provider = "ollama" | "openai" | "anthropic" | "glean" | "gateway";
-type GatewayFormat = "openai" | "anthropic";
+type Provider = "ollama" | "openai" | "anthropic";
+
+const PROVIDERS: Provider[] = ["ollama", "openai", "anthropic"];
+
+const PROVIDER_LABELS: Record<Provider, string> = {
+  ollama: "🖥️ Ollama",
+  openai: "☁️ OpenAI Compatible API",
+  anthropic: "🧠 Anthropic Compatible API",
+};
 
 const PRESETS: Record<Provider, {
   endpoint: string;
@@ -37,45 +44,24 @@ const PRESETS: Record<Provider, {
     needsAuth: true,
     authLabel: "API Key",
   },
-  glean: {
-    endpoint: "https://your-tenant.glean.com",
-    model: "",
-    endpointPlaceholder: "https://your-tenant.glean.com",
-    modelPlaceholder: "",
-    needsAuth: true,
-    authLabel: "Access Token",
-  },
-  gateway: {
-    endpoint: "https://your-gateway.example.com",
-    model: "gpt-4",
-    endpointPlaceholder: "https://your-gateway.example.com/v1",
-    modelPlaceholder: "gpt-4",
-    needsAuth: true,
-    authLabel: "Authorization Header (full value)",
-  },
 };
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { llm, promptConfig, setPromptConfig } = useTree();
   const saved = llm.getConfig();
 
-  // Restore saved provider from localStorage
+  // Restore saved provider from localStorage. Obsolete values (glean/gateway)
+  // are intentionally ignored and fall through to endpoint-based inference.
   const [provider, setProvider] = useState<Provider>(() => {
     try {
       const s = localStorage.getItem("asktree_provider");
-      if (s && (s === "ollama" || s === "openai" || s === "anthropic" || s === "gateway")) return s;
+      if (s === "ollama" || s === "openai" || s === "anthropic") return s;
+      // Obsolete providers: map to the closest compatible one.
+      if (s === "glean" || s === "gateway") return "openai";
     } catch {}
     if (!saved?.endpoint) return "ollama";
     if (saved.endpoint.includes("localhost") || saved.endpoint.includes("11434")) return "ollama";
     if (saved.endpoint.includes("anthropic")) return "anthropic";
-    return "openai";
-  });
-
-  const [gatewayFormat, setGatewayFormat] = useState<GatewayFormat>(() => {
-    try {
-      const s = localStorage.getItem("asktree_gateway_format");
-      if (s === "anthropic" || s === "openai") return s;
-    } catch {}
     return "openai";
   });
 
@@ -97,15 +83,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     return saved?.apiKey || "";
   });
 
-  const [authHeader, setAuthHeader] = useState(() => {
-    try {
-      const key = `asktree_provider_cfg_${provider}`;
-      const saved = localStorage.getItem(key);
-      if (saved) return JSON.parse(saved).authHeader || "";
-    } catch {}
-    return saved?.authHeader || "";
-  });
-
   const [model, setModel] = useState(() => {
     try {
       const key = `asktree_provider_cfg_${provider}`;
@@ -115,12 +92,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     return saved?.model || PRESETS[provider].model;
   });
 
+  const [showApiKey, setShowApiKey] = useState(false);
+
   const [maxDepth, setMaxDepth] = useState(promptConfig.maxDepth);
   const [contextRadius, setContextRadius] = useState(promptConfig.contextRadius.join(", "));
   const [template, setTemplate] = useState(promptConfig.template);
 
   const saveProviderConfig = (p: Provider) => {
-    const cfg = { endpoint, apiKey, authHeader, model };
+    const cfg = { endpoint, apiKey, model };
     localStorage.setItem(`asktree_provider_cfg_${p}`, JSON.stringify(cfg));
   };
 
@@ -132,7 +111,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         const cfg = JSON.parse(saved);
         setEndpoint(cfg.endpoint || PRESETS[p].endpoint);
         setApiKey(cfg.apiKey || "");
-        setAuthHeader(cfg.authHeader || "");
         setModel(cfg.model || PRESETS[p].model);
         return;
       }
@@ -141,7 +119,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     const preset = PRESETS[p];
     setEndpoint(preset.endpoint);
     setApiKey("");
-    setAuthHeader("");
     setModel(preset.model);
   };
 
@@ -155,22 +132,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleSave = () => {
-    // Save per-provider config
     saveProviderConfig(provider);
     localStorage.setItem("asktree_provider", provider);
-    localStorage.setItem("asktree_gateway_format", gatewayFormat);
 
-    const config = {
-      endpoint,
-      apiKey: provider !== "gateway" ? (apiKey || undefined) : undefined,
-      authHeader: provider === "gateway" ? (authHeader || undefined) : undefined,
-      model,
-    };
-    const llmProvider = provider === "gateway"
-      ? gatewayFormat
-      : provider;
-    llm.configure(config, llmProvider);
-    localStorage.setItem("asktree_llm_config", JSON.stringify({ config, provider: llmProvider }));
+    const config = { endpoint, apiKey: apiKey || undefined, model };
+    llm.configure(config, provider);
+    localStorage.setItem("asktree_llm_config", JSON.stringify({ config, provider }));
     setPromptConfig({
       maxDepth,
       contextRadius: contextRadius.split(",").map((s) => parseInt(s.trim()) || 0),
@@ -212,10 +179,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>LLM Configuration</h3>
         <label>Provider</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-          {(["ollama", "openai", "anthropic", "glean", "gateway"] as Provider[]).map((p) => (
+          {PROVIDERS.map((p) => (
             <button
               key={p}
               onClick={() => applyPreset(p)}
+              aria-pressed={provider === p}
               style={{
                 flex: 1,
                 padding: "6px 8px",
@@ -227,36 +195,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 cursor: "pointer",
               }}
             >
-              {p === "ollama" ? "🖥️ Ollama" : p === "openai" ? "☁️ OpenAI Compat." : p === "anthropic" ? "🧠 Anthropic" : p === "glean" ? "🔍 Glean" : "🏢 Custom Gateway"}
+              {PROVIDER_LABELS[p]}
             </button>
           ))}
         </div>
-
-        {provider === "gateway" && (
-          <>
-            <label>Gateway Format</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              {(["openai", "anthropic"] as GatewayFormat[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setGatewayFormat(f)}
-                  style={{
-                    flex: 1,
-                    padding: "4px 8px",
-                    fontSize: 12,
-                    background: gatewayFormat === f ? "#1a3a5c" : "#21262d",
-                    border: `1px solid ${gatewayFormat === f ? "#58a6ff" : "#30363d"}`,
-                    borderRadius: 4,
-                    color: gatewayFormat === f ? "#58a6ff" : "#8b949e",
-                    cursor: "pointer",
-                  }}
-                >
-                  {f === "openai" ? "OpenAI-compatible" : "Anthropic Messages"}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
 
         <label>Endpoint</label>
         <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={preset.endpointPlaceholder} />
@@ -264,36 +206,38 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {preset.needsAuth && (
           <>
             <label>{preset.authLabel}</label>
-            {provider === "gateway" ? (
+            <div className="password-field">
               <input
-                value={authHeader}
-                onChange={(e) => setAuthHeader(e.target.value)}
-                placeholder="Bearer sk-xxx or ApiKey xxx or X-API-Key: xxx"
-              />
-            ) : provider === "anthropic" ? (
-              <input
-                type="password"
+                type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-ant-api03-..."
+                placeholder={provider === "anthropic" ? "sk-ant-api03-..." : "sk-..."}
               />
-            ) : (
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-..."
-              />
-            )}
+              <button
+                type="button"
+                className="password-toggle"
+                aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                title={showApiKey ? "Hide API key" : "Show API key"}
+                onClick={() => setShowApiKey((v) => !v)}
+              >
+                {showApiKey ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </>
         )}
 
-        {provider !== "glean" && (
-          <>
-            <label>Model</label>
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={preset.modelPlaceholder} />
-          </>
-        )}
+        <label>Model</label>
+        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={preset.modelPlaceholder} />
 
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>Prompt Configuration</h3>
         <label>Max Ancestor Depth</label>
