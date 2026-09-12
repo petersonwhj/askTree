@@ -74,16 +74,17 @@ describe("path_summary ordering", () => {
       "Explain this",
       TEMPLATE,
     );
-    expect(result.user).toContain("Root Article → Middle → Leaf Q");
+    expect(result.user).toContain("1. Root Article");
+    expect(result.user).toContain("3. Leaf Q");
   });
 
-  it("should show natural sentence for single-slice (no trail)", () => {
+  it("should number a single-step trail", () => {
     const result = renderPrompt(
       [{ nodeTitle: "Article", selectedText: "x", surrounding: "…«x»…", depth: 0 }],
       "What is x?",
       TEMPLATE,
     );
-    expect(result.user).toContain("I'm reading this article for the first time.");
+    expect(result.user).toContain("1. Article");
   });
 });
 

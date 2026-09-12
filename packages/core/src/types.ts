@@ -67,18 +67,28 @@ export interface PromptConfig {
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   maxDepth: 3,
   contextRadius: [200, 100, 50],
-  template: `System: You are a focused study assistant helping a learner understand an article. Answer using only the provided context. When the context is insufficient to answer confidently, say so rather than guessing. Use clear, structured explanations and reply in the same language as the user's question. The highlighted text is enclosed in «guillemet markers» to help you locate it precisely within the surrounding passage.
+  template: `System: You are a study assistant. A learner is reading an article and drilling into it with follow-up questions. Answer the question using the context below. Focus on the highlighted term — marked with «» in the passage — and explain it as it is used there; treat the earlier trail only as background for how the learner arrived, not as the subject. Be clear and concise, define terms in plain language, and build the explanation up step by step. If the context is not enough to answer confidently, say what is specifically missing rather than guessing. Reply in the same language as the question.
 
 User:
-I'm studying **{root_title}**. {path_summary}
+I am studying the article "{root_title}".
+
+--------- How I reached this question ---------
+Each step is a question I drilled into, from the original article down to now:
+
+{path_summary}
+
+--------- Background — earlier passages (oldest first) ---------
+Context from the steps above, given only to show how I got here — it is not the subject of my question:
 
 {ancestors}
 
----
-{surrounding_text}
----
+--------- The passage I am reading now ---------
+My highlight is wrapped in «».
 
-About the highlighted part "{selected_text}":
+{surrounding_text}
+
+--------- My question ---------
+Within that passage I highlighted "{selected_text}".
 
 {user_question}`,
 };

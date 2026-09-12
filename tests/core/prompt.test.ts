@@ -17,8 +17,9 @@ describe("renderPrompt", () => {
     expect(result.system).toContain("study assistant");
     expect(result.user).toContain("quick brown abc fox jumps");
     expect(result.user).toContain("What is abc?");
-    // path_summary should be root → current (reverse of slice order)
-    expect(result.user).toContain("Root → Parent → Current");
+    // path_summary is a numbered trail, root → current (reverse of slice order)
+    expect(result.user).toContain("1. Root");
+    expect(result.user).toContain("3. Current");
   });
 
   it("should handle empty selectedText", () => {
@@ -41,29 +42,28 @@ describe("renderPrompt", () => {
       "What is x?",
       DEFAULT_PROMPT_CONFIG.template
     );
-    // Slices are leaf-first, path_summary should be root → leaf
-    expect(result.user).toContain("Root → Middle → Leaf");
-    expect(result.user).not.toContain("Leaf → Middle → Root");
+    // Slices are leaf-first, the numbered trail should be root → leaf.
+    expect(result.user.indexOf("1. Root")).toBeLessThan(result.user.indexOf("2. Middle"));
+    expect(result.user.indexOf("2. Middle")).toBeLessThan(result.user.indexOf("3. Leaf"));
   });
 
-  it("omits the highlighted-part clause for free-ask (no selection)", () => {
+  it("keeps the highlight framing for free-ask with the 'this section' fallback", () => {
     const result = renderPrompt(
       [{ nodeTitle: "Article", selectedText: "", surrounding: "whole article text", depth: 0 }],
       "Why?",
       DEFAULT_PROMPT_CONFIG.template
     );
-    expect(result.user).not.toContain("this section");
-    expect(result.user).not.toContain("highlighted part");
+    expect(result.user).toContain('I highlighted "this section"');
     expect(result.user).toContain("whole article text");
     expect(result.user).toContain("Why?");
   });
 
-  it("should use English fallback for empty ancestors", () => {
+  it("should use fallback for empty ancestors", () => {
     const result = renderPrompt(
       [{ nodeTitle: "Article", selectedText: "xyz", surrounding: "text around xyz", depth: 0 }],
       "Explain",
       DEFAULT_PROMPT_CONFIG.template
     );
-    expect(result.user).toContain("(no broader context available)");
+    expect(result.user).toContain("(This is my first question on this article — no earlier trail yet.)");
   });
 });

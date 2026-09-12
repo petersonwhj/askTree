@@ -128,29 +128,23 @@ export function renderPrompt(
     .map((s) => `[${s.nodeTitle}]\n${s.surrounding}`)
     .join("\n\n");
 
-  const selectedText = directSlice?.selectedText || "";
-  let base = template;
-  if (!selectedText) {
-    // Free ask: templates frame the question around a highlighted passage. With
-    // no selection that clause only confuses the model, so drop those lines.
-    base = base
-      .split(/\r?\n/)
-      .filter((line) => !line.includes("{selected_text}"))
-      .join("\n");
-  }
+  // slices are leaf-first (depth 0 → maxDepth); reverse so the trail reads root → current.
+  const pathSummary = [...slices]
+    .reverse()
+    .map((s, i) => `${i + 1}. ${s.nodeTitle}`)
+    .join("\n");
 
-  let text = base
-    .replaceAll("{selected_text}", selectedText || "this section")
+  let text = template
+    .replaceAll("{selected_text}", directSlice?.selectedText || "this section")
     .replaceAll("{surrounding_text}", directSlice?.surrounding || "")
-    .replaceAll("{ancestors}", ancestors || "(no broader context available)")
+    .replaceAll(
+      "{ancestors}",
+      ancestors || "(This is my first question on this article — no earlier trail yet.)",
+    )
     .replaceAll("{user_question}", question)
     .replaceAll("{root_title}", slices[slices.length - 1]?.nodeTitle || "")
     .replaceAll("{full_article}", "")
-    // slices are leaf-first (depth 0 → maxDepth); reverse so path reads root → current
-    .replaceAll("{path_summary}",
-      slices.length <= 1
-        ? "I'm reading this article for the first time."
-        : "My reading trail: " + [...slices].reverse().map((s) => s.nodeTitle).join(" → "));
+    .replaceAll("{path_summary}", pathSummary);
 
   const parts = text.split("User:");
   const system = parts[0]?.replace(/^System:\s*/, "").trim() || "";
