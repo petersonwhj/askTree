@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { InMemoryStorageAdapter, TreeStore, DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 import type { Node } from "@asktree/core";
 
@@ -184,6 +184,28 @@ describe("DualPanel panel actions and free-ask target", () => {
       expect(copied).toBeTruthy();
       expect(copied?.getAttribute("aria-label")).toBe("Copied");
     });
+  });
+
+  it("refreshes explored marks immediately after an off-path deletion", async () => {
+    // A sibling edge on the parent that is not on the active path.
+    const sibling = await store.addChild(
+      rootId,
+      { selectedText: "article", startPos: 5, endPos: 12, question: "sib" },
+      "sib content",
+    );
+
+    const { container, rerender } = render(<DualPanel />);
+    await waitFor(() =>
+      expect(container.querySelector(".asktree-explored")?.textContent).toContain("article"),
+    );
+
+    await act(async () => {
+      await store.removeNode(sibling.id);
+    });
+    mocks.ctx = { ...mocks.ctx, treeVersion: ((mocks.ctx.treeVersion as number) ?? 0) + 1 };
+    rerender(<DualPanel />);
+
+    await waitFor(() => expect(container.querySelector(".asktree-explored")).toBeNull());
   });
 
   it("shows the raw selection slice from the panel it was made in", async () => {

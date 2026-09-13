@@ -22,6 +22,8 @@ interface TreeContextValue {
   setPromptConfig: (c: PromptConfig) => void;
   showExplored: boolean;
   setShowExplored: (show: boolean) => void;
+  /** Bumped on tree mutations so derived views can recompute. */
+  treeVersion: number;
   isLoading: boolean;
 }
 
@@ -44,6 +46,8 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem("asktree_prompt_config", JSON.stringify(promptConfig));
   }, [promptConfig]);
+
+  const [treeVersion, setTreeVersion] = useState(0);
 
   const [showExplored, setShowExplored] = useState<boolean>(() => {
     try {
@@ -134,6 +138,9 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
       const trimmed = prev.slice(0, idx);
       return trimmed.length > 0 ? trimmed : [];
     });
+    // Always signal a mutation, even when the removed node was off-path, so
+    // derived views (explored marks, highlights) refresh immediately.
+    setTreeVersion((v) => v + 1);
   }, []);
 
   const importBundleFn = useCallback(async (bundle: ExportBundle) => {
@@ -153,7 +160,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
         store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
         createRootTree, resetTree, addChildNode, updateStatus, removeNode, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
-      showExplored, setShowExplored,
+      showExplored, setShowExplored, treeVersion,
     }}>
       {children}
     </TreeContext.Provider>

@@ -90,7 +90,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     store, llm, activePath, selectedText, setSelectedText,
     addChildNode, updateStatus, promptConfig, createRootTree, navigateTo, focusNode, navigateUp,
-    showExplored,
+    showExplored, treeVersion,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -164,19 +164,23 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   // The passage in the left pane that the right (current) node was asked about.
   const parentHighlight = useMemo(() => {
     if (currentNode.id === parentNode.id) return null;
-    const edge = parentNode.children.find((e) => e.targetNodeId === currentNode.id);
+    // Read from the store so the quote reflects the current edges (fresh after
+    // navigation or deletion), not a stale activePath snapshot.
+    const edges = store.getNode(parentNode.id)?.children ?? parentNode.children;
+    const edge = edges.find((e) => e.targetNodeId === currentNode.id);
     return edge && edge.startPos >= 0 && edge.endPos > edge.startPos
       ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
       : null;
-  }, [parentNode, currentNode]);
+    // treeVersion: recompute after deletions so the quote/marks stay current.
+  }, [parentNode, currentNode, store, treeVersion]);
 
   const parentExplored = useMemo(
     () => (showExplored ? exploredSpans(store, parentNode) : []),
-    [showExplored, store, parentNode],
+    [showExplored, store, parentNode, treeVersion],
   );
   const childExplored = useMemo(
     () => (showExplored ? exploredSpans(store, currentNode) : []),
-    [showExplored, store, currentNode],
+    [showExplored, store, currentNode, treeVersion],
   );
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
