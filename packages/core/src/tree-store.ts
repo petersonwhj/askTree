@@ -4,6 +4,7 @@ import type { StorageAdapter } from "./storage-adapter";
 export class TreeStore {
   private rootNodeId: string | null = null;
   private nodes: Map<string, Node> = new Map();
+  private readingPositions: Map<string, number> = new Map();
 
   constructor(private adapter: StorageAdapter) {}
 
@@ -106,6 +107,18 @@ export class TreeStore {
     return path;
   }
 
+  /** Normalized scroll fraction (0–1) the learner last reached in a node. */
+  getReadingPosition(id: string): number {
+    return this.readingPositions.get(id) ?? 0;
+  }
+
+  setReadingPosition(id: string, fraction: number): void {
+    if (!this.nodes.has(id)) return;
+    const clamped = Math.min(1, Math.max(0, fraction));
+    this.readingPositions.set(id, clamped);
+    void this.persist();
+  }
+
   updateStatus(id: string, status: Node["status"]): void {
     const node = this.nodes.get(id);
     if (!node) throw new Error("Node not found");
@@ -128,6 +141,7 @@ export class TreeStore {
     for (const removeId of toRemove) {
       await this.adapter.deleteNodeContent(removeId).catch(() => {});
       this.nodes.delete(removeId);
+      this.readingPositions.delete(removeId);
     }
 
     if (node.parentId) {
@@ -164,6 +178,9 @@ export class TreeStore {
       nodes: nodesObj,
       createdAt: rootNode?.createdAt ?? Date.now(),
       updatedAt: Date.now(),
+      ...(this.readingPositions.size > 0
+        ? { readingPositions: Object.fromEntries(this.readingPositions) }
+        : {}),
     };
   }
 
@@ -173,6 +190,11 @@ export class TreeStore {
       store.nodes.set(id, { ...node });
     }
     store.rootNodeId = json.rootNodeId;
+    if (json.readingPositions) {
+      for (const [id, fraction] of Object.entries(json.readingPositions)) {
+        if (store.nodes.has(id)) store.readingPositions.set(id, fraction);
+      }
+    }
     return store;
   }
 

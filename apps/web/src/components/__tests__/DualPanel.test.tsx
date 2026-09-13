@@ -39,6 +39,7 @@ describe("DualPanel prompt debug trigger", () => {
       focusNode: vi.fn(),
       navigateUp: vi.fn(),
       isLoading: false,
+      showExplored: true,
     };
   });
 
@@ -123,6 +124,7 @@ describe("DualPanel panel actions and free-ask target", () => {
       focusNode: vi.fn(),
       navigateUp: vi.fn(),
       isLoading: false,
+      showExplored: true,
     };
   });
 
@@ -182,6 +184,24 @@ describe("DualPanel panel actions and free-ask target", () => {
       expect(copied).toBeTruthy();
       expect(copied?.getAttribute("aria-label")).toBe("Copied");
     });
+  });
+
+  it("shows the raw selection slice from the panel it was made in", async () => {
+    const childText = "first answer markdown";
+    const start = childText.indexOf("answer");
+    const end = start + "answer".length;
+    mocks.ctx = {
+      ...mocks.ctx,
+      selectedText: { text: "answer", start, end, nodeId: childId },
+    };
+
+    const { container } = render(<DualPanel />);
+
+    await waitFor(() => expect(container.querySelector(".context-badge")).toBeTruthy());
+    const badge = container.querySelector(".context-badge")!.textContent ?? "";
+    expect(badge).toContain("answer");
+    // The old code sliced the parent content at the same offsets → "articl".
+    expect(badge).not.toContain("articl");
   });
 
   it("labels a selection from the right panel", async () => {

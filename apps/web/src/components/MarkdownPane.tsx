@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { renderMarkdown } from "../lib/markdown";
+import { scrollFraction, scrollTopForFraction, scrollTopForMark } from "../lib/scroll";
 import { FloatingAskButton } from "./FloatingAskButton";
 
 interface Props {
@@ -7,6 +8,14 @@ interface Props {
   highlights?: Array<{ startPos: number; endPos: number; nodeId: string }>;
   highlight?: { start: number; end: number; text?: string } | null;
   onTextSelected: (text: string, startPos: number, endPos: number) => void;
+  /** Normalized scroll fraction to restore when this pane opens. */
+  initialScrollFraction?: number;
+  /** Called (debounced) with the new normalized scroll fraction. */
+  onScrollFractionChange?: (fraction: number) => void;
+  /** Passages already asked about (surviving child edges), shown as subtle marks. */
+  explored?: Array<{ start: number; end: number; text?: string }>;
+  /** Scroll to the active highlight (the question's quoted passage) on open. */
+  scrollToHighlight?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +139,12 @@ function extractSelectionSource(contentEl: HTMLElement, range: Range): string {
 // Highlight — walks the SAME visible-text space (skips .katex-mathml)
 // ---------------------------------------------------------------------------
 
-function applyHighlight(root: HTMLElement, start: number, end: number) {
+function applyHighlight(
+  root: HTMLElement,
+  start: number,
+  end: number,
+  className = "asktree-highlight",
+) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let offset = 0;
   const targets: Array<{ node: Text; s: number; e: number }> = [];
@@ -157,7 +171,7 @@ function applyHighlight(root: HTMLElement, start: number, end: number) {
       range.setStart(node, s);
       range.setEnd(node, e);
       const mark = document.createElement("mark");
-      mark.className = "asktree-highlight";
+      mark.className = className;
       range.surroundContents(mark);
     } catch {
       // Node boundary changed — skip
@@ -240,23 +254,36 @@ function rawToRenderedOffsets(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
+export function MarkdownPane({
+  content,
+  onTextSelected,
+  highlight,
+  initialScrollFraction,
+  onScrollFractionChange,
+  explored,
+  scrollToHighlight,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const restoringRef = useRef(false);
+  const scrollSaveTimer = useRef<number | null>(null);
   const [floatingPos, setFloatingPos] = useState<{ text: string; top: number; left: number } | null>(null);
   const [selectionRange, setSelectionRange] = useState<{ text: string; start: number; end: number } | null>(null);
 
   useEffect(() => {
     if (contentRef.current) {
-      contentRef.current.innerHTML = renderMarkdown(content);
+      const root = contentRef.current;
+      root.innerHTML = renderMarkdown(content);
+      // renderedText excludes hidden MathML, so offsets stay consistent.
+      const renderedText = getVisibleText(root);
+
+      // Active selection first — it takes precedence over explored marks.
+      let activeRange: { start: number; end: number } | null = null;
       if (highlight && highlight.start >= 0 && highlight.end > highlight.start) {
         let displayStart = highlight.start;
         let displayEnd = highlight.end;
 
         if (highlight.text) {
-          // Map stored raw offsets → visible-rendered offsets using stored
-          // visible text. renderedText excludes hidden MathML for consistency.
-          const renderedText = getVisibleText(contentRef.current);
           const pos = rawToRenderedOffsets(
             content, renderedText, highlight.start, highlight.end, highlight.text,
           );
@@ -265,11 +292,70 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
         }
 
         if (displayStart >= 0 && displayEnd > displayStart) {
-          applyHighlight(contentRef.current, displayStart, displayEnd);
+          applyHighlight(root, displayStart, displayEnd);
+          activeRange = { start: displayStart, end: displayEnd };
+        }
+      }
+
+      if (explored) {
+        for (const span of explored) {
+          if (span.start < 0 || span.end <= span.start) continue;
+          const pos = span.text
+            ? rawToRenderedOffsets(content, renderedText, span.start, span.end, span.text)
+            : { start: span.start, end: span.end };
+          if (pos.end <= pos.start) continue;
+          // Skip anything the active selection already covers.
+          if (activeRange && pos.start < activeRange.end && pos.end > activeRange.start) continue;
+          applyHighlight(root, pos.start, pos.end, "asktree-explored");
         }
       }
     }
-  }, [content, highlight]);
+
+    const el = containerRef.current;
+    let positioned = false;
+
+    // Position at the question's quoted passage when asked (wins over the
+    // saved reading position).
+    if (el && scrollToHighlight) {
+      const mark = el.querySelector(".asktree-highlight") as HTMLElement | null;
+      if (mark) {
+        positioned = true;
+        restoringRef.current = true;
+        const scrollToMark = () => {
+          el.scrollTop = scrollTopForMark(mark.offsetTop, el.clientHeight);
+        };
+        scrollToMark();
+        requestAnimationFrame(() => {
+          scrollToMark();
+          restoringRef.current = false;
+        });
+      }
+    }
+
+    // Otherwise restore the learner's reading position. Guard against the
+    // scroll event fired by this programmatic move overwriting the saved value.
+    if (!positioned && el && initialScrollFraction != null) {
+      restoringRef.current = true;
+      const restore = () => {
+        el.scrollTop = scrollTopForFraction(initialScrollFraction, el.scrollHeight, el.clientHeight);
+      };
+      restore();
+      requestAnimationFrame(() => {
+        restore();
+        restoringRef.current = false;
+      });
+    }
+  }, [content, highlight, initialScrollFraction, explored, scrollToHighlight]);
+
+  const handleScroll = useCallback(() => {
+    if (restoringRef.current || !onScrollFractionChange) return;
+    const el = containerRef.current;
+    if (!el) return;
+    if (scrollSaveTimer.current !== null) window.clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = window.setTimeout(() => {
+      onScrollFractionChange(scrollFraction(el.scrollTop, el.scrollHeight, el.clientHeight));
+    }, 250);
+  }, [onScrollFractionChange]);
 
   const handleSelection = useCallback(() => {
     const sel = window.getSelection();
@@ -338,7 +424,7 @@ export function MarkdownPane({ content, onTextSelected, highlight }: Props) {
   };
 
   return (
-    <div className="markdown-pane" ref={containerRef}>
+    <div className="markdown-pane" ref={containerRef} onScroll={handleScroll}>
       <div ref={contentRef} />
       {floatingPos && (
         <FloatingAskButton

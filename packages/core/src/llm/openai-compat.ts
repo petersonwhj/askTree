@@ -1,13 +1,5 @@
 import type { LLMConfig, AskOptions } from "../types";
-
-async function apiError(resp: Response): Promise<Error> {
-  try {
-    const body = await resp.clone().json();
-    const msg = body?.error?.message || body?.message || body?.detail || "";
-    if (msg) return new Error(`API error ${resp.status}: ${msg}`);
-  } catch {}
-  return new Error(`API error: ${resp.status} ${resp.statusText}`);
-}
+import { llmErrorFromResponse, llmParseError } from "./errors";
 
 export async function askOpenAICompat(config: LLMConfig, options: AskOptions): Promise<string> {
   const base = config.endpoint.replace(/\/+$/, "");
@@ -49,12 +41,25 @@ export async function askOpenAICompat(config: LLMConfig, options: AskOptions): P
       model: config.model,
       messages,
       stream: false,
+      // DeepSeek v4 models default to non-thinking; request thinking explicitly.
+      thinking: { type: "enabled" },
     }),
     signal: options.signal,
   });
 
-  if (!resp.ok) throw await apiError(resp);
+  if (!resp.ok) throw await llmErrorFromResponse(resp, "API");
 
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content ?? "";
+  let json: {
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+  try {
+    json = await resp.json();
+  } catch {
+    throw llmParseError("API", "body is not JSON");
+  }
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content !== "string") {
+    throw llmParseError("API", "missing choices[0].message.content");
+  }
+  return content;
 }

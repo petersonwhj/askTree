@@ -1,13 +1,23 @@
 import { useState, useEffect } from "react";
 import { useTree } from "../hooks/useTree";
-import { collectContext, renderPrompt } from "@asktree/core";
+import { collectContext, renderPrompt, SUGGEST_TEMPLATE } from "@asktree/core";
 
 interface Props {
   nodeId: string;
   onClose: () => void;
+  /** "question" rebuilds the Q&A prompt; "suggestion" rebuilds the help-me-ask prompt. */
+  mode?: "question" | "suggestion";
+  targetId?: string;
+  selection?: { start: number; end: number; text: string } | null;
 }
 
-export function PromptDebugModal({ nodeId, onClose }: Props) {
+export function PromptDebugModal({
+  nodeId,
+  onClose,
+  mode = "question",
+  targetId,
+  selection,
+}: Props) {
   const { store, promptConfig } = useTree();
   const [question, setQuestion] = useState("");
   const [system, setSystem] = useState("");
@@ -18,6 +28,23 @@ export function PromptDebugModal({ nodeId, onClose }: Props) {
   useEffect(() => {
     (async () => {
       try {
+        if (mode === "suggestion") {
+          // "Help me ask" is generated from the current ask context (selection
+          // or the free-ask target page), not from a generated answer.
+          const target = targetId ?? nodeId;
+          const slices = await collectContext(target, selection ?? null, store, promptConfig);
+          const rendered = renderPrompt(
+            slices,
+            "",
+            promptConfig.suggestTemplate || SUGGEST_TEMPLATE,
+          );
+          setQuestion("Suggested questions");
+          setSystem(rendered.system);
+          setUser(rendered.user);
+          setLoading(false);
+          return;
+        }
+
         const node = store.getNode(nodeId);
         if (!node) return;
 
@@ -29,7 +56,7 @@ export function PromptDebugModal({ nodeId, onClose }: Props) {
           ? store.getNode(parentId)?.children.find((e) => e.targetNodeId === nodeId)
           : null;
 
-        const selection = edge?.selectedText
+        const edgeSelection = edge?.selectedText
           ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
           : null;
 
@@ -40,7 +67,7 @@ export function PromptDebugModal({ nodeId, onClose }: Props) {
         const contextNodeId = parentId ?? nodeId;
         const slices = await collectContext(
           contextNodeId,
-          selection,
+          edgeSelection,
           store,
           promptConfig,
         );
@@ -53,7 +80,17 @@ export function PromptDebugModal({ nodeId, onClose }: Props) {
       }
       setLoading(false);
     })();
-  }, [nodeId, store, promptConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    nodeId,
+    store,
+    promptConfig,
+    mode,
+    targetId,
+    selection?.start,
+    selection?.end,
+    selection?.text,
+  ]);
 
   const copyPrompt = () => {
     const text = `SYSTEM\n${system}\n\nUSER\n${user}`;

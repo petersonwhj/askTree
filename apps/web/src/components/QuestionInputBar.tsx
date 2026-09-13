@@ -14,6 +14,7 @@ interface Props {
   contextSide?: "left" | "right" | null;
   onRequestSuggestions?: () => Promise<string[]>;
   onOpenSettings?: () => void;
+  onDebugSuggestions?: () => void;
 }
 
 const MAX_ROWS = 10;
@@ -34,6 +35,7 @@ export function QuestionInputBar({
   contextSide = null,
   onRequestSuggestions,
   onOpenSettings,
+  onDebugSuggestions,
 }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -156,6 +158,17 @@ export function QuestionInputBar({
           <div className="suggest-header">
             <span className="suggest-title">Suggested questions</span>
             <div className="suggest-actions">
+              {onDebugSuggestions && (
+                <button
+                  type="button"
+                  className="suggest-action"
+                  aria-label="Debug suggested questions"
+                  title="查看建议提问的 prompt"
+                  onClick={onDebugSuggestions}
+                >
+                  ?
+                </button>
+              )}
               <button
                 type="button"
                 className="suggest-action"

@@ -1,13 +1,5 @@
 import type { LLMConfig, AskOptions } from "../types";
-
-async function apiError(resp: Response): Promise<Error> {
-  try {
-    const body = await resp.clone().json();
-    const msg = body?.error || body?.message || "";
-    if (msg) return new Error(`Ollama error ${resp.status}: ${msg}`);
-  } catch {}
-  return new Error(`Ollama error: ${resp.status} ${resp.statusText}`);
-}
+import { llmErrorFromResponse, llmParseError } from "./errors";
 
 export async function askOllama(config: LLMConfig, options: AskOptions): Promise<string> {
   const base = config.endpoint.replace(/\/+$/, "");
@@ -36,8 +28,17 @@ export async function askOllama(config: LLMConfig, options: AskOptions): Promise
     signal: options.signal,
   });
 
-  if (!resp.ok) throw await apiError(resp);
+  if (!resp.ok) throw await llmErrorFromResponse(resp, "Ollama");
 
-  const json = await resp.json();
-  return json.response ?? json.message ?? "";
+  let json: { response?: unknown; message?: unknown };
+  try {
+    json = await resp.json();
+  } catch {
+    throw llmParseError("Ollama", "body is not JSON");
+  }
+  const content = json?.response ?? json?.message;
+  if (typeof content !== "string") {
+    throw llmParseError("Ollama", "missing response field");
+  }
+  return content;
 }

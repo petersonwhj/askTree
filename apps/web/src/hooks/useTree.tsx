@@ -20,6 +20,8 @@ interface TreeContextValue {
   exportBundle: () => Promise<ExportBundle | null>;
   promptConfig: PromptConfig;
   setPromptConfig: (c: PromptConfig) => void;
+  showExplored: boolean;
+  setShowExplored: (show: boolean) => void;
   isLoading: boolean;
 }
 
@@ -42,6 +44,18 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem("asktree_prompt_config", JSON.stringify(promptConfig));
   }, [promptConfig]);
+
+  const [showExplored, setShowExplored] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("asktree_show_explored") !== "false";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("asktree_show_explored", String(showExplored));
+  }, [showExplored]);
 
   useEffect(() => {
     (async () => {
@@ -139,6 +153,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
         store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
         createRootTree, resetTree, addChildNode, updateStatus, removeNode, selectedText, setSelectedText,
       importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
+      showExplored, setShowExplored,
     }}>
       {children}
     </TreeContext.Provider>

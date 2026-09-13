@@ -111,6 +111,24 @@ describe("QuestionInputBar", () => {
     expect(onRequestSuggestions).toHaveBeenCalledTimes(2);
   });
 
+  it("offers a debug action for suggested questions", async () => {
+    const onDebugSuggestions = vi.fn();
+    const onRequestSuggestions = vi.fn().mockResolvedValue(["Q?"]);
+    render(
+      <QuestionInputBar
+        {...baseProps}
+        contextText={null}
+        onRequestSuggestions={onRequestSuggestions}
+        onDebugSuggestions={onDebugSuggestions}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /suggest a question/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /debug suggested questions/i }));
+
+    expect(onDebugSuggestions).toHaveBeenCalled();
+  });
+
   it("shows an error with a settings action when generation fails", async () => {
     const onOpenSettings = vi.fn();
     const onRequestSuggestions = vi.fn().mockRejectedValue(new Error("LLM not configured"));

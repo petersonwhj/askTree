@@ -132,6 +132,58 @@ describe("TreeStore", () => {
     });
   });
 
+  describe("reading positions", () => {
+    it("stores, clamps, and defaults per-node reading positions", async () => {
+      const root = await store.createTree("root", "Root");
+      const child = await store.addChild(
+        root.id,
+        { selectedText: "", startPos: 0, endPos: 0, question: "q?" },
+        "child",
+      );
+
+      expect(store.getReadingPosition(root.id)).toBe(0);
+      expect(store.getReadingPosition("missing")).toBe(0);
+
+      store.setReadingPosition(child.id, 0.5);
+      expect(store.getReadingPosition(child.id)).toBe(0.5);
+
+      store.setReadingPosition(child.id, 1.7);
+      expect(store.getReadingPosition(child.id)).toBe(1);
+
+      store.setReadingPosition(child.id, -0.3);
+      expect(store.getReadingPosition(child.id)).toBe(0);
+    });
+
+    it("round-trips reading positions through serialize/deserialize", async () => {
+      const root = await store.createTree("root", "Root");
+      store.setReadingPosition(root.id, 0.42);
+
+      const restored = await TreeStore.deserialize(store.serialize(), adapter);
+      expect(restored.getReadingPosition(root.id)).toBe(0.42);
+    });
+
+    it("clears reading positions when a subtree is removed", async () => {
+      const root = await store.createTree("root", "Root");
+      const child = await store.addChild(
+        root.id,
+        { selectedText: "", startPos: 0, endPos: 0, question: "q?" },
+        "child",
+      );
+      const grandchild = await store.addChild(
+        child.id,
+        { selectedText: "", startPos: 0, endPos: 0, question: "q2?" },
+        "grandchild",
+      );
+      store.setReadingPosition(child.id, 0.5);
+      store.setReadingPosition(grandchild.id, 0.7);
+
+      await store.removeNode(child.id);
+
+      expect(store.getReadingPosition(child.id)).toBe(0);
+      expect(store.getReadingPosition(grandchild.id)).toBe(0);
+    });
+  });
+
   describe("export / import", () => {
     it("should export and import a bundle", async () => {
       const root = await store.createTree("root md", "Root");

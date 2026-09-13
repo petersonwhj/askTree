@@ -1,13 +1,5 @@
 import type { LLMConfig, AskOptions } from "../types";
-
-async function apiError(resp: Response): Promise<Error> {
-  try {
-    const body = await resp.clone().json();
-    const msg = body?.error?.message || body?.message || "";
-    if (msg) return new Error(`Anthropic error ${resp.status}: ${msg}`);
-  } catch {}
-  return new Error(`Anthropic error: ${resp.status} ${resp.statusText}`);
-}
+import { llmErrorFromResponse, llmParseError } from "./errors";
 
 export async function askAnthropic(config: LLMConfig, options: AskOptions): Promise<string> {
   const base = config.endpoint.replace(/\/+$/, "");
@@ -60,8 +52,17 @@ export async function askAnthropic(config: LLMConfig, options: AskOptions): Prom
     signal: options.signal,
   });
 
-  if (!resp.ok) throw await apiError(resp);
+  if (!resp.ok) throw await llmErrorFromResponse(resp, "Anthropic");
 
-  const json = await resp.json();
-  return json.content?.[0]?.text ?? "";
+  let json: { content?: Array<{ text?: unknown }> };
+  try {
+    json = await resp.json();
+  } catch {
+    throw llmParseError("Anthropic", "body is not JSON");
+  }
+  const text = json?.content?.[0]?.text;
+  if (typeof text !== "string") {
+    throw llmParseError("Anthropic", "missing content[0].text");
+  }
+  return text;
 }

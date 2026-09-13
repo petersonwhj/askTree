@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTree } from "../hooks/useTree";
-import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
+import { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE } from "@asktree/core";
 
 type Provider = "ollama" | "openai" | "anthropic";
 
@@ -30,9 +30,9 @@ const PRESETS: Record<Provider, {
   },
   openai: {
     endpoint: "https://api.deepseek.com",
-    model: "deepseek-chat",
+    model: "deepseek-flash",
     endpointPlaceholder: "https://api.deepseek.com",
-    modelPlaceholder: "deepseek-chat",
+    modelPlaceholder: "deepseek-flash",
     needsAuth: true,
     authLabel: "API Key",
   },
@@ -47,7 +47,14 @@ const PRESETS: Record<Provider, {
 };
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { llm, promptConfig, setPromptConfig } = useTree();
+  const {
+    llm,
+    promptConfig,
+    setPromptConfig,
+    showExplored = true,
+    setShowExplored,
+  } = useTree();
+  const [exploredDraft, setExploredDraft] = useState(showExplored);
   const saved = llm.getConfig();
 
   // Restore saved provider from localStorage. Obsolete values (glean/gateway)
@@ -97,6 +104,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [maxDepth, setMaxDepth] = useState(promptConfig.maxDepth);
   const [contextRadius, setContextRadius] = useState(promptConfig.contextRadius.join(", "));
   const [template, setTemplate] = useState(promptConfig.template);
+  const [suggestTemplate, setSuggestTemplate] = useState(
+    promptConfig.suggestTemplate ?? SUGGEST_TEMPLATE,
+  );
+
+  // In-memory drafts so switching providers keeps unsaved edits without
+  // writing anything to storage (only Save commits).
+  const draftsRef = useRef<
+    Partial<Record<Provider, { endpoint: string; apiKey: string; model: string }>>
+  >({});
 
   const saveProviderConfig = (p: Provider) => {
     const cfg = { endpoint, apiKey, model };
@@ -123,12 +139,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const applyPreset = (p: Provider) => {
-    if (provider !== p) {
-      saveProviderConfig(provider);
-    }
+    if (p === provider) return;
+    // Stash the current edits as an in-memory draft; write nothing yet.
+    draftsRef.current[provider] = { endpoint, apiKey, model };
     setProvider(p);
+    const draft = draftsRef.current[p];
+    if (draft) {
+      setEndpoint(draft.endpoint);
+      setApiKey(draft.apiKey);
+      setModel(draft.model);
+      return;
+    }
     restoreProviderConfig(p);
-    localStorage.setItem("asktree_provider", p);
   };
 
   const handleSave = () => {
@@ -142,7 +164,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       maxDepth,
       contextRadius: contextRadius.split(",").map((s) => parseInt(s.trim()) || 0),
       template,
+      suggestTemplate,
     });
+    setShowExplored?.(exploredDraft);
     onClose();
   };
 
@@ -150,6 +174,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setMaxDepth(DEFAULT_PROMPT_CONFIG.maxDepth);
     setContextRadius(DEFAULT_PROMPT_CONFIG.contextRadius.join(", "));
     setTemplate(DEFAULT_PROMPT_CONFIG.template);
+    setSuggestTemplate(DEFAULT_PROMPT_CONFIG.suggestTemplate ?? SUGGEST_TEMPLATE);
+    setExploredDraft(true);
   };
 
   const preset = PRESETS[provider];
@@ -242,15 +268,49 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>Prompt Configuration</h3>
         <label>Max Ancestor Depth</label>
         <input type="number" value={maxDepth} onChange={(e) => setMaxDepth(parseInt(e.target.value) || 3)} min={1} max={5} />
+        <p className="field-help">
+          How many ancestor pages to include, walked upward from the page you are asking about.
+          The current page is always included, and the real article root is always anchored.
+        </p>
 
         <label>Context Radius (chars per depth, comma-separated)</label>
         <input value={contextRadius} onChange={(e) => setContextRadius(e.target.value)} placeholder="200, 100, 50" />
+        <p className="field-help">
+          Surrounding characters kept per depth level — the first value is for the current page,
+          each next value is one ancestor level up.
+        </p>
 
         <label>Prompt Template</label>
-        <textarea value={template} onChange={(e) => setTemplate(e.target.value)} />
+        <textarea
+          aria-label="Prompt Template"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+        />
+
+        <label>Suggested Questions Template</label>
+        <textarea
+          aria-label="Suggested Questions Template"
+          value={suggestTemplate}
+          onChange={(e) => setSuggestTemplate(e.target.value)}
+        />
+
+        <h3 style={{ fontSize: 14, color: "#8b949e", marginTop: 16 }}>Reading</h3>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={exploredDraft}
+            onChange={(e) => setExploredDraft(e.target.checked)}
+            style={{ width: "auto", margin: 0 }}
+          />
+          Show explored passages
+        </label>
+        <p className="field-help">
+          Underlines passages you already asked about, in both panels.
+        </p>
 
         <div className="btn-row">
           <button onClick={handleReset}>Reset Defaults</button>
+          <button onClick={onClose}>Cancel</button>
           <button className="primary" onClick={handleSave}>Save</button>
         </div>
       </div>

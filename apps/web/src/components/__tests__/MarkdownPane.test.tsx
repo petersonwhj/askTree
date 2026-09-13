@@ -186,6 +186,67 @@ describe("MarkdownPane", () => {
     expect(start).toBeGreaterThanOrEqual(0);
   });
 
+  it("renders explored passages as subtle marks", async () => {
+    const { container } = render(
+      <MarkdownPane
+        content="alpha beta gamma"
+        onTextSelected={() => {}}
+        explored={[{ start: 6, end: 10, text: "beta" }]}
+      />,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const marks = container.querySelectorAll(".asktree-explored");
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe("beta");
+  });
+
+  it("scrolls to the quoted passage when scrollToHighlight is set", async () => {
+    const topSpy = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(900);
+    const heightSpy = vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(400);
+    try {
+      const { container } = render(
+        <MarkdownPane
+          content="alpha beta gamma"
+          onTextSelected={() => {}}
+          highlight={{ start: 6, end: 10, text: "beta" }}
+          scrollToHighlight
+        />,
+      );
+
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      const pane = container.querySelector(".markdown-pane") as HTMLElement;
+      expect(pane.scrollTop).toBe(700);
+    } finally {
+      topSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("gives the active selection precedence over explored marks", async () => {
+    const { container } = render(
+      <MarkdownPane
+        content="alpha beta gamma"
+        onTextSelected={() => {}}
+        highlight={{ start: 6, end: 10, text: "beta" }}
+        explored={[{ start: 6, end: 10, text: "beta" }]}
+      />,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    expect(container.querySelectorAll(".asktree-highlight")).toHaveLength(1);
+    expect(container.querySelectorAll(".asktree-explored")).toHaveLength(0);
+  });
+
   it("maps a selection spanning inline emphasis to exact raw markdown offsets", async () => {
     const onTextSelected = vi.fn();
     const rawContent =

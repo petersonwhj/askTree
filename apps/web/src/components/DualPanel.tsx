@@ -11,7 +11,19 @@ import {
   SUGGEST_TEMPLATE,
   parseSuggestedQuestions,
 } from "@asktree/core";
-import type { Node } from "@asktree/core";
+import type { Node, TreeStore } from "@asktree/core";
+
+/** Passages already asked about: spans from the node's surviving child edges. */
+function exploredSpans(
+  store: TreeStore,
+  node: Node | undefined,
+): Array<{ start: number; end: number; text: string }> {
+  if (!node) return [];
+  const edges = store.getNode(node.id)?.children ?? node.children;
+  return edges
+    .filter((e) => e.startPos >= 0 && e.endPos > e.startPos)
+    .map((e) => ({ start: e.startPos, end: e.endPos, text: e.selectedText }));
+}
 
 function copyMarkdown(content: string | null) {
   if (content == null) return;
@@ -78,6 +90,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     store, llm, activePath, selectedText, setSelectedText,
     addChildNode, updateStatus, promptConfig, createRootTree, navigateTo, focusNode, navigateUp,
+    showExplored,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +101,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [newContent, setNewContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [debugNodeId, setDebugNodeId] = useState<string | null>(null);
+  const [debugSuggestion, setDebugSuggestion] = useState(false);
   const [freeAskTarget, setFreeAskTarget] = useState<AskTarget>("right");
 
   const currentNode = activePath[activePath.length - 1];
@@ -112,14 +126,22 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }, [currentNode, parentNode, store]);
 
   // Raw markdown slice for display (badge + placeholder).
-  // selectedText.text is DOM text (for highlight); offsets point into raw markdown.
-  // Slicing parentContent gives the real source with $..$ intact.
+  // selectedText.text is DOM text (for highlight); offsets point into the raw
+  // markdown of the node the selection came from — which may be the left (parent)
+  // or right (current) panel. Slice that node's content so the offsets line up.
   const displayRawText = useMemo(() => {
-    if (!selectedText || !parentContent) return null;
+    if (!selectedText) return null;
+    const sourceContent =
+      selectedText.nodeId === parentNode.id
+        ? parentContent
+        : selectedText.nodeId === currentNode.id
+          ? childContent
+          : null;
+    if (!sourceContent) return null;
     const { start, end } = selectedText;
-    if (start < 0 || end <= start || start >= parentContent.length) return null;
-    return parentContent.slice(start, Math.min(end, parentContent.length));
-  }, [selectedText, parentContent]);
+    if (start < 0 || end <= start || start >= sourceContent.length) return null;
+    return sourceContent.slice(start, Math.min(end, sourceContent.length));
+  }, [selectedText, parentContent, childContent, parentNode, currentNode]);
 
   const selectionSide: "left" | "right" | null =
     selectedText && currentNode
@@ -129,6 +151,33 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           ? "right"
           : null
       : null;
+
+  // Context that the "help me ask" feature (generation and its debug view) uses.
+  const suggestionTargetId =
+    selectedText?.nodeId ??
+    (freeAskTarget === "left" ? parentNode?.id : currentNode?.id) ??
+    "";
+  const suggestionSelection = selectedText
+    ? { start: selectedText.start, end: selectedText.end, text: selectedText.text }
+    : null;
+
+  // The passage in the left pane that the right (current) node was asked about.
+  const parentHighlight = useMemo(() => {
+    if (currentNode.id === parentNode.id) return null;
+    const edge = parentNode.children.find((e) => e.targetNodeId === currentNode.id);
+    return edge && edge.startPos >= 0 && edge.endPos > edge.startPos
+      ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
+      : null;
+  }, [parentNode, currentNode]);
+
+  const parentExplored = useMemo(
+    () => (showExplored ? exploredSpans(store, parentNode) : []),
+    [showExplored, store, parentNode],
+  );
+  const childExplored = useMemo(
+    () => (showExplored ? exploredSpans(store, currentNode) : []),
+    [showExplored, store, currentNode],
+  );
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -291,15 +340,13 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     if (!llm.getConfig?.()) {
       throw new Error("LLM not configured. Open Settings to choose a provider.");
     }
-    const targetId =
-      selectedText?.nodeId ||
-      (freeAskTarget === "left" ? parentNode.id : currentNode.id);
-    const selection = selectedText
-      ? { start: selectedText.start, end: selectedText.end, text: selectedText.text }
-      : null;
-
-    const slices = await collectContext(targetId, selection, store, promptConfig);
-    const rendered = renderPrompt(slices, "", SUGGEST_TEMPLATE);
+    const slices = await collectContext(
+      suggestionTargetId,
+      suggestionSelection,
+      store,
+      promptConfig,
+    );
+    const rendered = renderPrompt(slices, "", promptConfig.suggestTemplate || SUGGEST_TEMPLATE);
     const raw = await llm.ask({
       question: "",
       contextSlices: slices,
@@ -361,17 +408,12 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         {parentContent !== null && (
           <MarkdownPane
             content={parentContent}
-            highlight={
-              currentNode.id !== parentNode.id
-                ? (() => {
-                    const edge = parentNode.children.find(e => e.targetNodeId === currentNode.id);
-                    return edge && edge.startPos >= 0
-                      ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
-                      : null;
-                  })()
-                : null
-            }
+            highlight={parentHighlight}
             onTextSelected={(text, start, end) => handleTextSelected(text, start, end, parentNode.id)}
+            initialScrollFraction={store.getReadingPosition(parentNode.id)}
+            onScrollFractionChange={(f) => store.setReadingPosition(parentNode.id, f)}
+            explored={parentExplored}
+            scrollToHighlight={!!parentHighlight}
           />
         )}
       </div>
@@ -416,6 +458,9 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             <MarkdownPane
               content={childContent}
               onTextSelected={(text, start, end) => handleTextSelected(text, start, end, currentNode.id)}
+              initialScrollFraction={store.getReadingPosition(currentNode.id)}
+              onScrollFractionChange={(f) => store.setReadingPosition(currentNode.id, f)}
+              explored={childExplored}
             />
           </>
         ) : (
@@ -443,10 +488,20 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           contextSide={selectionSide}
           onRequestSuggestions={requestSuggestions}
           onOpenSettings={onOpenSettings}
+          onDebugSuggestions={() => setDebugSuggestion(true)}
         />
       </div>
     </div>
     {debugNodeId && <PromptDebugModal nodeId={debugNodeId} onClose={() => setDebugNodeId(null)} />}
+    {debugSuggestion && (
+      <PromptDebugModal
+        nodeId={currentNode.id}
+        mode="suggestion"
+        targetId={suggestionTargetId}
+        selection={suggestionSelection}
+        onClose={() => setDebugSuggestion(false)}
+      />
+    )}
     </>
   );
 }

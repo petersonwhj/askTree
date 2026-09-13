@@ -15,6 +15,7 @@ describe("renderPrompt", () => {
     );
     // English study-assistant system prompt
     expect(result.system).toContain("study assistant");
+    expect(result.system).toContain("answer user's question regarding the highlighted term");
     expect(result.user).toContain("quick brown abc fox jumps");
     expect(result.user).toContain("What is abc?");
     // path_summary is a numbered trail, root → current (reverse of slice order)
@@ -55,6 +56,16 @@ describe("renderPrompt", () => {
     );
     expect(result.user).toContain('I highlighted "this section"');
     expect(result.user).toContain("whole article text");
+    expect(result.user).toContain("Why?");
+  });
+
+  it("does not truncate the user prompt when the article contains a role marker", () => {
+    const result = renderPrompt(
+      [{ nodeTitle: "A", selectedText: "x", surrounding: "before User: after content", depth: 0 }],
+      "Why?",
+      DEFAULT_PROMPT_CONFIG.template,
+    );
+    expect(result.user).toContain("after content");
     expect(result.user).toContain("Why?");
   });
 

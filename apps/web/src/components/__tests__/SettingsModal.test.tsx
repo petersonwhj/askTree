@@ -15,7 +15,23 @@ describe("SettingsModal providers", () => {
       llm: { getConfig: () => null, configure: vi.fn() },
       promptConfig: DEFAULT_PROMPT_CONFIG,
       setPromptConfig: vi.fn(),
+      showExplored: true,
+      setShowExplored: vi.fn(),
     };
+  });
+
+  it("toggles the explored-passages setting on Save", () => {
+    const setShowExplored = vi.fn();
+    mocks.ctx = { ...mocks.ctx, setShowExplored };
+
+    render(<SettingsModal onClose={() => {}} />);
+    const box = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(setShowExplored).toHaveBeenCalledWith(false);
   });
 
   it("offers only Ollama, OpenAI-compatible, and Anthropic providers", () => {
@@ -36,6 +52,81 @@ describe("SettingsModal providers", () => {
 
     const openai = screen.getByRole("button", { name: /openai compatible api/i });
     expect(openai.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("does not persist a provider switch until Save", () => {
+    localStorage.setItem("asktree_provider", "openai");
+    const configure = vi.fn();
+    mocks.ctx = {
+      llm: { getConfig: () => null, configure },
+      promptConfig: DEFAULT_PROMPT_CONFIG,
+      setPromptConfig: vi.fn(),
+    };
+
+    render(<SettingsModal onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /ollama/i }));
+
+    expect(localStorage.getItem("asktree_provider")).toBe("openai");
+    expect(configure).not.toHaveBeenCalled();
+  });
+
+  it("persists the provider switch and prompt templates on Save", () => {
+    localStorage.setItem("asktree_provider", "openai");
+    const configure = vi.fn();
+    const setPromptConfig = vi.fn();
+    mocks.ctx = {
+      llm: { getConfig: () => null, configure },
+      promptConfig: DEFAULT_PROMPT_CONFIG,
+      setPromptConfig,
+    };
+
+    render(<SettingsModal onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /ollama/i }));
+    fireEvent.change(screen.getByLabelText("Suggested Questions Template"), {
+      target: { value: "MY SUGGEST TEMPLATE" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(localStorage.getItem("asktree_provider")).toBe("ollama");
+    expect(configure).toHaveBeenCalled();
+    expect(setPromptConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestTemplate: "MY SUGGEST TEMPLATE" }),
+    );
+  });
+
+  it("Cancel discards the draft switch", () => {
+    localStorage.setItem("asktree_provider", "openai");
+    const configure = vi.fn();
+    mocks.ctx = {
+      llm: { getConfig: () => null, configure },
+      promptConfig: DEFAULT_PROMPT_CONFIG,
+      setPromptConfig: vi.fn(),
+    };
+
+    render(<SettingsModal onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /ollama/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(localStorage.getItem("asktree_provider")).toBe("openai");
+    expect(configure).not.toHaveBeenCalled();
+  });
+
+  it("shows the suggested-questions template from the config", () => {
+    render(<SettingsModal onClose={() => {}} />);
+    const area = screen.getByLabelText("Suggested Questions Template") as HTMLTextAreaElement;
+    expect(area.value).toBe(DEFAULT_PROMPT_CONFIG.suggestTemplate);
+  });
+
+  it("explains the depth and radius settings", () => {
+    render(<SettingsModal onClose={() => {}} />);
+    expect(screen.getByText(/upward from the page you are asking/i)).toBeTruthy();
+    expect(screen.getByText(/surrounding characters kept per depth/i)).toBeTruthy();
+  });
+
+  it("defaults the OpenAI-compatible model to deepseek-flash", () => {
+    localStorage.setItem("asktree_provider", "openai");
+    render(<SettingsModal onClose={() => {}} />);
+    expect(screen.getByDisplayValue("deepseek-flash")).toBeTruthy();
   });
 
   it("keeps the API key hidden by default and toggles visibility with the eye", () => {

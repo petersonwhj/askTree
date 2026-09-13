@@ -90,3 +90,69 @@ Fourth milestone: optional visual review, after baseline preservation, failure r
 *Acceptance.* Select repeated words, inline code, nested emphasis, prose spanning a formula, display math, and text after several formulas. Repeat in both panels, in both drag directions, and after reload/export/import. Assert the exact source occurrence and surrounding prompt text, not merely that a highlight exists. Include a right-panel selection whose offsets would identify unrelated text in the left panel. Preserve math rendering and selection while React updates.
 
 **Where:** `apps/web/src/components/MarkdownPane.tsx`, `DualPanel.tsx`, `packages/core/src/types.ts`, and selection/context tests. The right-panel check is motivated by public `DualPanel` deriving display source from `parentContent`; reproduce and fix it with node-specific content.
+
+### 02 — Make context scope and prompt inspection consistent
+
+**Observed gap.** At public head, a question with no selected text receives only the first `radius × 2` characters of the focused passage. A question about its ending can therefore omit the relevant material. Downstream supplies the whole focused passage, retains bounded ancestor windows, and presents the trail as numbered sections. Full-passage context solves the arbitrary-prefix problem but introduces a context-size concern for long imports.
+
+**Desired behavior.** Use the exact selection plus configured surrounding context when selected. With no selection, provide the focused passage under an explicit length/token policy. Explain truncation or let the user narrow scope when a document exceeds it. Ancestor offsets always index the ancestor's own text, following its edge toward the focused node.
+
+**Suggested approach.** Use one prompt assembly path for asking, suggesting, and debugging. Show the prompt actually prepared for the operation, with the node/selection scope that produced it. Explain depth zero and radius settings with a short example. Number the included trail consistently without presenting a depth-truncated ancestor as necessarily the real root. Review template delimiters so article text containing a literal role marker cannot accidentally cut off the user's content.
+
+*Acceptance:* content near the end of an unselected article is included or explicitly reported as outside the chosen budget; ancestor radius/depth choices work; custom templates reach every provider; a deliberately empty system section does not trigger an unrelated fallback prompt. Suggestion and question debug match their respective requests. Literal template-like text, Unicode, math, and newlines survive serialization.
+
+When image-bearing imports arrive, cut context against original stored content first, then remove embedded image bytes from the outgoing text context while retaining descriptions. Keep offsets and the stored article unchanged. Test a context window inside an image URI, beside one, and after one, as well as a question with no selection. This is stricter than assuming a whole-image pattern will always fit inside a context window.
+
+**Where:** `packages/core/src/prompt.ts`, provider adapters, `DualPanel.tsx`, `PromptDebugModal.tsx`, and prompt/context tests. Context budgets and template-delimiter hardening are proposed follow-ups, not claims of complete downstream implementation.
+
+### 03 — Make provider configuration explicit and reversible
+
+**Observed gap.** Upstream already remembers settings per provider. The remaining useful changes are per-format model/endpoint memory inside Custom Gateway, masked credentials, clear endpoint semantics, and consistent Save/Cancel behavior. Public provider switches currently write some settings immediately, even before Save. Public adapters also differ in which endpoint suffixes they append.
+
+**Desired behavior.** Distinguish provider identity, wire format, endpoint, model, and authentication. Let users switch among draft configurations and commit changes only on Save. Cancel restores the saved configuration. Show the destination and required configuration before a first request.
+
+**Suggested approach.** Define whether each adapter accepts a base URL or a full operation URL, and migrate existing saved settings without duplicating paths. Remember gateway format settings separately. Mask secrets with an accessible reveal control. Validate pasted token artifacts and report invalid characters without logging the token. Retain direct Anthropic authentication/version-header behavior as well as bearer-authenticated gateways; downstream's uniform gateway conventions are not a replacement for public direct-provider support.
+
+*Acceptance:* switch providers and gateway formats repeatedly; Save/reopen and Cancel/reopen behave consistently; old settings still work; blank/malformed stored settings produce a useful setup path. Test trailing slashes, an already complete operation URL, duplicate-suffix prevention, token whitespace, invisible paste artifacts, and visible invalid token characters. Test both direct-provider and custom-gateway authentication. A first question either uses valid saved configuration or opens setup with the draft question retained.
+
+**Where:** `SettingsModal.tsx`, `hooks/useTree.tsx`, `packages/core/src/llm/*`, and configuration tests. Use user-provided endpoints and public examples. A Gemini model exposed through a compatible gateway is a format/preset option, not evidence that a new native Gemini adapter exists.
+
+### 04 — Diagnose transport failures without changing article text
+
+**Observed lesson.** A historical gateway failure initially looked like a control-character problem in the prompt. Later investigation identified response compression/transport behavior. The final downstream code preserves prompt text and adds shared credential/error handling. Reintroducing broad character deletion would repeat an abandoned diagnosis.
+
+**Desired behavior.** Separate setup errors, rejected credentials, network/CORS failures, provider HTTP errors, invalid response bodies, and cancellation. Show actionable messages without exposing secrets. A JSON parse failure alone does not prove truncation or establish which service is responsible.
+
+**Suggested approach.** Centralize response handling while keeping provider-specific semantics. Preserve HTTP status and useful error details. If a proxy is supplied, make it an optional separately configured adapter with restricted destinations. Treat compression workarounds as specific compatibility measures supported by evidence. Give retries one owner and a total attempt/time budget so page retries and proxy retries cannot multiply unnoticed.
+
+*Acceptance:* simulated 401, 403, 429, 500, unreachable endpoint, HTML error response, malformed successful JSON, interrupted body, and cancellation yield distinct useful outcomes. Requests preserve source text. Tests inspect the serialized request body, not just a prompt helper. Retryable failures obey the budget and provider cooldown; authentication failures pause for correction rather than looping. Diagnostics omit authorization values and document contents. Account for the possibility that retrying model POST incurs another charge.
+
+**Where:** provider response helpers and an optional server adapter. No deployment wrapper, database, company authentication service, or fixed internal host is required for the public app.
+
+### 05 — Restore reading position, show explored passages, improve exports
+
+Deliver as three independently useful PRs.
+
+**Reading position.** Persist progress per node and restore it when navigating between panels or reopening a tree. Downstream stores a normalized scroll fraction in tree metadata. Define defaults for older exports, debounce writes, clamp invalid values, and clear deleted-node metadata. Check short articles, resized panels, late-loading images, rapid navigation, and export/import round trips. The first visible restoration should not jump repeatedly while saving its own intermediate state.
+
+**Explored passages.** Derive marks from surviving child edges, distinguish them from the active selection, and offer a display toggle. Downstream uses a subtle underline and gives the active selection precedence. Test overlapping questions, adjacent spans, repeated text, subtree deletion, and toggling during a selection. The parent mark must update immediately when its last corresponding child is removed; existing sidebar refresh fixes do not establish this behavior automatically.
+
+**Exports.** Add copy/export of each displayed passage as Markdown. Keep whole-tree JSON export and label the distinction clearly. Use the root article title for the default tree filename, with safe fallback and filename normalization. Test Unicode titles, forbidden filename characters, empty titles, clipboard denial, save-dialog cancellation, and the download fallback. Export source Markdown, including math, rather than rendered HTML or only visible text.
+
+**Where:** `TreeStore`, tree metadata/export types, `MarkdownPane`, `DualPanel`, `AppHeader`, and a browser download helper. Reading positions are new metadata; preserve the public export format's compatibility deliberately.
+
+### 06 — Add suggested questions and accessible reading controls
+
+**Desired behavior.** A learner can request questions about a selection or focused article, inspect the context, and place a chosen suggestion into the composer before sending it. Downstream implements this flow and supports common model response formats.
+
+**Suggested approach.** Reuse context collection and the configured provider. Accept a validated array of question strings and reasonable numbered/bulleted fallbacks. Reject unusable structures, cap output, and handle languages whose question punctuation differs from English. Keep suggestion requests separate from creating answer nodes. Preserve the selection that motivated the suggestions, or explain when navigation invalidates it.
+
+*Acceptance:* selecting a suggestion creates no node or answer request until Send; error, empty output, cancellation, and late responses are handled. A stale response from a previous node does not replace current suggestions. Prompt inspection uses the captured request. Buttons have accessible names, dialogs support keyboard focus/Escape, focus returns correctly, and the composer preserves Enter/Shift+Enter behavior without losing text selection.
+
+**Where:** a new suggestion dialog/parser plus existing composer and prompt components. Follow with a separate typography/spacing pass. The downstream cosmetic commit sequence supplies design experience, not a requirement to adopt its branding or exact styles. Full accessibility coverage is an acceptance target, not a verified property of every downstream dialog.
+
+### 07 — Introduce a shared document-import boundary
+
+**Desired behavior.** File picker, drag-and-drop, and extension document URLs produce a common result: title, Markdown, and visible warnings. Import completes successfully before replacing an existing tree. Failure or cancellation preserves the learner's work.
+
+**Suggested approach.** Keep conversion outside core tree/prompt logic and load large format libraries only when needed. Preserve Markdown/plain-text input. Determine format from bytes where possible, including renamed files and generic download responses; a ZIP signature alone does not establish DOCX. Apply the same detection rules at every entry point. Downstream improves sniffing in multiple … *(text cut off in source image)*

@@ -80,26 +80,27 @@ export async function collectContext(
       surrounding = content.slice(0, radius * 2);
     }
 
-    slices.push({ nodeTitle: node.title, selectedText, surrounding, depth });
+    slices.push({ nodeTitle: node.title, selectedText, surrounding, depth, isRoot: i === 0 });
+  }
+
+  // The trail is walked UP from the focused node and may stop before the real
+  // root. Always anchor it with the genuine root so it is never represented by
+  // a depth-truncated ancestor.
+  if (path.length > 0 && !slices.some((s) => s.isRoot)) {
+    const root = path[0];
+    const radius = config.contextRadius[config.contextRadius.length - 1];
+    const content = await store.getContent(root.id);
+    slices.push({
+      nodeTitle: root.title,
+      selectedText: "",
+      surrounding: content.slice(0, radius * 2),
+      depth: path.length - 1,
+      isRoot: true,
+    });
   }
 
   return slices;
 }
-
-/**
- * Prompt used by the "help me ask" feature: turn the focused passage (or the
- * highlighted selection) into a few questions that surface its hard points.
- */
-export const SUGGEST_TEMPLATE = `System: You are a study assistant. A learner is reading the passage below but is stuck and cannot formulate a question. Identify what is hardest to understand and propose exactly 3 short, specific questions that would genuinely help the learner understand it. Output only the 3 questions, one per line, with no numbering, bullets, or extra commentary. Reply in the same language as the passage.
-
-User:
-The learner is focused on "{selected_text}".
-
----
-{surrounding_text}
----
-
-{ancestors}`;
 
 /** Pull up to `max` questions out of a model reply, tolerating list/quote noise. */
 export function parseSuggestedQuestions(text: string, max = 3): string[] {
@@ -142,12 +143,20 @@ export function renderPrompt(
       ancestors || "(This is my first question on this article — no earlier trail yet.)",
     )
     .replaceAll("{user_question}", question)
-    .replaceAll("{root_title}", slices[slices.length - 1]?.nodeTitle || "")
+    .replaceAll(
+      "{root_title}",
+      slices.find((s) => s.isRoot)?.nodeTitle ?? slices[slices.length - 1]?.nodeTitle ?? "",
+    )
     .replaceAll("{full_article}", "")
     .replaceAll("{path_summary}", pathSummary);
 
-  const parts = text.split("User:");
-  const system = parts[0]?.replace(/^System:\s*/, "").trim() || "";
-  const user = parts[1]?.trim() || text;
+  // Split on the FIRST "User:" only. Using split() would also cut at any
+  // "User:" that appears inside the article/selection text, truncating the prompt.
+  const delim = text.indexOf("User:");
+  if (delim === -1) {
+    return { system: text.replace(/^System:\s*/, "").trim(), user: text.trim() };
+  }
+  const system = text.slice(0, delim).replace(/^System:\s*/, "").trim();
+  const user = text.slice(delim + "User:".length).trim();
   return { system, user };
 }

@@ -100,6 +100,29 @@ describe("collectContext free-ask context", () => {
     expect(slices[0].surrounding).toBe(article);
   });
 
+  it("always anchors the trail with the real root even when the path exceeds maxDepth", async () => {
+    const store = new TreeStore(new InMemoryStorageAdapter());
+    const root = await store.createTree("root content", "Root Article");
+    let parent = root;
+    for (let i = 1; i <= 5; i++) {
+      parent = await store.addChild(
+        parent.id,
+        { selectedText: "", startPos: 0, endPos: 0, question: `Q${i}` },
+        `content ${i}`,
+      );
+    }
+
+    const slices = await collectContext(parent.id, null, store, {
+      ...DEFAULT_PROMPT_CONFIG,
+      maxDepth: 2,
+    });
+
+    expect(slices.find((s) => s.isRoot)?.nodeTitle).toBe("Root Article");
+
+    const rendered = renderPrompt(slices, "why?", DEFAULT_PROMPT_CONFIG.template);
+    expect(rendered.user).toContain('I am studying the article "Root Article"');
+  });
+
   it("still trims surrounding to the selection when one exists", async () => {
     const store = new TreeStore(new InMemoryStorageAdapter());
     const article = "前".repeat(500) + "SELECTED" + "后".repeat(500);

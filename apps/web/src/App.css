@@ -149,6 +149,7 @@ body {
 .panel-icon-btn:hover { color: #58a6ff; border-color: #58a6ff; }
 .panel-icon-btn:disabled { opacity: 0.4; cursor: default; color: #8b949e; border-color: #30363d; }
 .panel-icon-btn.copied { color: #3fb950; animation: copied-pop 0.22s ease; }
+.panel-icon-btn.active { color: #58a6ff; border-color: #58a6ff; }
 
 @keyframes copied-pop {
   0% { transform: scale(0.82); }
@@ -206,6 +207,12 @@ body {
 
 .asktree-highlight {
   background: #00ffff44; color: inherit; padding: 0 2px; border-radius: 2px;
+}
+
+/* Passages already asked about — light-yellow underline, active selection wins. */
+.asktree-explored {
+  background: none; color: inherit; padding: 0;
+  border-bottom: 1px solid #e2c24a;
 }
 
 .markdown-pane :first-child { margin-top: 0; }
@@ -348,6 +355,8 @@ body {
 }
 
 .settings-modal textarea { min-height: 200px; font-size: 11px; resize: vertical; }
+
+.field-help { font-size: 11px; color: #6e7681; margin: 4px 0 0; line-height: 1.5; }
 
 .password-field { position: relative; }
 .password-field input { padding-right: 34px; }

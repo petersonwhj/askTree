@@ -120,8 +120,8 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
           style={{ display: "none" }}
           onChange={handleFileSelect}
         />
-        <button onClick={handleExport} disabled={!hasTree}>Export</button>
-        <button onClick={() => importRef.current?.click()}>Import</button>
+        <button onClick={handleExport} disabled={!hasTree} title="Export the whole tree as JSON">Export Tree</button>
+        <button onClick={() => importRef.current?.click()} title="Import a tree (JSON)">Import Tree</button>
         <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
         <button onClick={onSettings}>Settings</button>
         </div>

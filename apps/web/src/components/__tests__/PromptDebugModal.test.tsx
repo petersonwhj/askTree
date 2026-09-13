@@ -71,6 +71,26 @@ describe("PromptDebugModal", () => {
     expect(user).not.toContain("server-rendered page becomes interactive");
   });
 
+  it("shows the suggestion prompt in suggestion mode", async () => {
+    const { container } = render(
+      <PromptDebugModal
+        nodeId={childId}
+        mode="suggestion"
+        targetId={childId}
+        selection={null}
+        onClose={() => {}}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector(".prompt-debug-user")?.textContent).toBeTruthy(),
+    );
+    const system = container.querySelector(".prompt-debug-system")?.textContent ?? "";
+    const user = container.querySelector(".prompt-debug-user")?.textContent ?? "";
+    expect(system).toContain("cannot formulate a question");
+    expect(user).toContain("server-rendered page becomes interactive");
+  });
+
   it("copies the combined system and user prompt from the single Copy button", async () => {
     render(<PromptDebugModal nodeId={childId} onClose={() => {}} />);
 
