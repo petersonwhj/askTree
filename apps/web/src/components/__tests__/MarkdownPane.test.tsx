@@ -305,6 +305,28 @@ describe("MarkdownPane", () => {
     expect(raw.slice(start, end)).toBe("$\\alpha$");
   });
 
+  it("selects a formula when the selection endpoints are elements", async () => {
+    const raw = "See $\\alpha$ here.";
+    const onTextSelected = vi.fn();
+    const { container } = render(<MarkdownPane content={raw} onTextSelected={onTextSelected} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+    const katex = contentDiv.querySelector(".katex")!;
+    const range = document.createRange();
+    range.setStart(katex, 0);
+    range.setEnd(katex, katex.childNodes.length);
+    await selectRange(range);
+
+    const btn = container.querySelector(".floating-ask");
+    expect(btn).toBeTruthy();
+    fireEvent.mouseDown(btn!);
+    const [, start, end] = onTextSelected.mock.calls[0];
+    expect(raw.slice(start, end)).toBe("$\\alpha$");
+  });
+
   it("renders explored passages as subtle marks", async () => {
     const { container } = render(
       <MarkdownPane

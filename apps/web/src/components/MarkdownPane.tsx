@@ -54,34 +54,87 @@ function getVisibleText(root: Node): string {
 }
 
 /**
- * Offset of (target, targetOffset) within the *visible* text of `root`.
- * Endpoints inside hidden KaTeX MathML map to the start/end of that formula's
- * visible glyphs, so a formula can still be selected.
+ * Compute the visible-text span of `range` by walking the content once, instead
+ * of deriving it from anchorNode/focusNode (which are often ELEMENT nodes for
+ * structured content such as KaTeX formulas — the old approach collapsed there).
+ *
+ * KaTeX's duplicated representation is an asset here: endpoints inside a
+ * `.katex` (MathML or katex-html) are clamped to the formula's boundaries, so
+ * any range that touches a formula selects it as one atomic unit, and the
+ * LaTeX side (`serializeInRange`) stays in sync with the glyph side.
  */
-function visibleOffset(
-  root: Node,
-  target: Node,
-  targetOffset: number,
-  mathmlEdge: "start" | "end",
-): number {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let offset = 0;
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    if (node === target) {
-      if (isInsideKatexMathml(node)) {
-        const el =
-          node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-        const katex = el?.closest?.(".katex") ?? null;
-        const visibleLen = katex ? getVisibleText(katex).length : 0;
-        return mathmlEdge === "start" ? offset : offset + visibleLen;
-      }
-      return offset + targetOffset;
+function computeVisibleRange(
+  contentEl: HTMLElement,
+  range: Range,
+): { start: number; end: number; text: string } | null {
+  // Clamp endpoints inside a formula to the formula's outer boundaries.
+  const katexOf = (node: Node): Element | null => {
+    const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    return el?.closest?.(".katex") ?? null;
+  };
+  const clampPoint = (
+    container: Node,
+    offset: number,
+    edge: "start" | "end",
+  ): [Node, number] => {
+    const katex = katexOf(container);
+    if (katex?.parentElement) {
+      const i = Array.prototype.indexOf.call(katex.parentElement.childNodes, katex);
+      return [katex.parentElement, edge === "start" ? i : i + 1];
     }
-    if (isInsideKatexMathml(node)) continue;
-    offset += node.textContent?.length || 0;
+    return [container, offset];
+  };
+  const [sc, so] = clampPoint(range.startContainer, range.startOffset, "start");
+  const [ec, eo] = clampPoint(range.endContainer, range.endOffset, "end");
+
+  // Compare a DOM point against a reference point: -1 before, 0 equal, 1 after.
+  // Uses a collapsed probe range + comparePoint (reliable across engines).
+  const probe = document.createRange();
+  const vs = (container: Node, offset: number, point: Node, pointOffset: number): number => {
+    probe.setStart(point, pointOffset);
+    probe.setEnd(point, pointOffset);
+    return probe.comparePoint(container, offset);
+  };
+
+  let offset = 0;
+  let start = -1;
+  let end = -1;
+  const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const len = node.textContent?.length ?? 0;
+    if (isInsideKatexMathml(node)) continue; // glyphs live in .katex-html
+    const nodeStart = offset;
+    offset += len;
+
+    try {
+      // Node ends at/before the selection start → skip.
+      if (vs(node, len, sc, so) <= 0) continue;
+      // Node begins at/after the selection end → skip.
+      if (vs(node, 0, ec, eo) >= 0) continue;
+
+      const inStart = vs(node, 0, sc, so) >= 0
+        ? 0
+        : range.startContainer === node
+          ? range.startOffset
+          : 0;
+      const inEnd = vs(node, len, ec, eo) <= 0
+        ? len
+        : range.endContainer === node
+          ? range.endOffset
+          : len;
+      if (inEnd > inStart) {
+        if (start === -1) start = nodeStart + inStart;
+        end = nodeStart + inEnd;
+      }
+    } catch {
+      continue; // detached/unsupported — skip this node
+    }
   }
-  return offset;
+  if (start === -1 || end <= start) return null;
+
+  const text = getVisibleText(contentEl);
+  return { start, end, text: text.slice(start, end) };
 }
 
 // ---------------------------------------------------------------------------
@@ -436,21 +489,19 @@ export function MarkdownPane({
       return;
     }
 
-    // Visible-text space: consistent for storage + highlight (skips MathML)
-    const visibleText = getVisibleText(contentEl);
-    const a = visibleOffset(contentEl, sel.anchorNode, sel.anchorOffset, "start");
-    const b = visibleOffset(contentEl, sel.focusNode, sel.focusOffset, "end");
-    const rStart = Math.min(a, b);
-    const rEnd = Math.max(a, b);
-
-    // domVisible is GUARANTEED to be a substring of visibleText (it's a slice),
-    // so highlight re-matching can never drift.
-    const domVisible = visibleText.slice(rStart, rEnd).trim();
-    if (!domVisible || domVisible.length > 500) {
+    // Visible-text space: consistent for storage + highlight (skips MathML).
+    // Compute the span by walking the range itself, so ANY endpoint shape works
+    // (element nodes, hidden MathML, partial formulas).
+    const span = computeVisibleRange(contentEl, range);
+    const domVisible = span?.text.trim() ?? "";
+    if (!span || !domVisible || domVisible.length > 500) {
       setFloatingPos(null);
       setSelectionRange(null);
       return;
     }
+    const visibleText = getVisibleText(contentEl);
+    const rStart = span.start;
+    const rEnd = span.end;
 
     // Reconstruct the raw source (LaTeX + supported inline Markdown) and try it
     // first for an exact match. Fall back to the visible text (covers partial
