@@ -186,6 +186,125 @@ describe("MarkdownPane", () => {
     expect(start).toBeGreaterThanOrEqual(0);
   });
 
+  function textNodesOf(root: Node): Text[] {
+    const out: Text[] = [];
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) out.push(w.currentNode as Text);
+    return out;
+  }
+
+  async function selectRange(range: Range) {
+    const r = range as unknown as { getBoundingClientRect?: () => DOMRect };
+    r.getBoundingClientRect = () =>
+      ({ x: 10, y: 20, width: 50, height: 16, top: 20, left: 10, right: 60, bottom: 36, toJSON: () => ({}) }) as DOMRect;
+
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      isCollapsed: false,
+      toString: () => range.toString(),
+      anchorNode: range.startContainer,
+      anchorOffset: range.startOffset,
+      focusNode: range.endContainer,
+      focusOffset: range.endOffset,
+      getRangeAt: () => range,
+      removeAllRanges: vi.fn(),
+      containsNode: () => true,
+    } as unknown as Selection);
+    fireEvent.mouseUp(document);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+  }
+
+  it("maps a selection spanning inline math to the exact raw slice", async () => {
+    const raw = "See $\\alpha$ here.";
+    const onTextSelected = vi.fn();
+    const { container } = render(<MarkdownPane content={raw} onTextSelected={onTextSelected} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+    const nodes = textNodesOf(contentDiv);
+    const seeNode = nodes.find((n) => n.textContent!.startsWith("See"))!;
+    const hereNode = nodes.find((n) => n.textContent!.includes("here"))!;
+    const range = document.createRange();
+    range.setStart(seeNode, seeNode.textContent!.length); // after "See "
+    range.setEnd(hereNode, hereNode.textContent!.length);
+    await selectRange(range);
+
+    fireEvent.mouseDown(container.querySelector(".floating-ask")!);
+    const [text, start, end] = onTextSelected.mock.calls[0];
+    expect(text).toContain("α");
+    expect(raw.slice(start, end)).toBe("$\\alpha$ here.");
+  });
+
+  it("maps a selection through display math to the exact raw slice", async () => {
+    const raw = "Before\n\n$$\n\\frac{a}{b}\n$$\n\nAfter";
+    const onTextSelected = vi.fn();
+    const { container } = render(<MarkdownPane content={raw} onTextSelected={onTextSelected} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+    const before = contentDiv.querySelector("p")!;
+    const after = contentDiv.querySelectorAll("p")[contentDiv.querySelectorAll("p").length - 1]!;
+    const range = document.createRange();
+    range.setStart(before.firstChild!, before.firstChild!.textContent!.length);
+    range.setEnd(after.firstChild!, after.firstChild!.textContent!.length);
+    await selectRange(range);
+
+    fireEvent.mouseDown(container.querySelector(".floating-ask")!);
+    const [, start, end] = onTextSelected.mock.calls[0];
+    const slice = raw.slice(start, end);
+    expect(slice).toContain("\\frac{a}{b}");
+    expect(slice).toContain("After");
+  });
+
+  it("maps repeated text to the selected occurrence, not the first", async () => {
+    const raw = "你好，你好，你好。";
+    const onTextSelected = vi.fn();
+    const { container } = render(<MarkdownPane content={raw} onTextSelected={onTextSelected} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+    const node = textNodesOf(contentDiv)[0];
+    const range = document.createRange();
+    range.setStart(node, 3); // second "你好"
+    range.setEnd(node, 5);
+    await selectRange(range);
+
+    fireEvent.mouseDown(container.querySelector(".floating-ask")!);
+    const [, start, end] = onTextSelected.mock.calls[0];
+    expect(raw.slice(start, end)).toBe("你好");
+    expect(start).toBe(3);
+  });
+
+  it("selects a formula whose endpoints are inside the hidden MathML", async () => {
+    const raw = "See $\\alpha$ here.";
+    const onTextSelected = vi.fn();
+    const { container } = render(<MarkdownPane content={raw} onTextSelected={onTextSelected} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const contentDiv = container.querySelector(".markdown-pane > div")!;
+    const mathml = contentDiv.querySelector(".katex-mathml")!;
+    const nodes = textNodesOf(mathml);
+    const range = document.createRange();
+    range.setStart(nodes[0], 0);
+    range.setEnd(nodes[nodes.length - 1], nodes[nodes.length - 1].textContent!.length);
+    await selectRange(range);
+
+    const btn = container.querySelector(".floating-ask");
+    expect(btn).toBeTruthy();
+    fireEvent.mouseDown(btn!);
+    const [, start, end] = onTextSelected.mock.calls[0];
+    expect(raw.slice(start, end)).toBe("$\\alpha$");
+  });
+
   it("renders explored passages as subtle marks", async () => {
     const { container } = render(
       <MarkdownPane

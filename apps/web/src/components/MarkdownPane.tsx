@@ -53,14 +53,30 @@ function getVisibleText(root: Node): string {
   return out;
 }
 
-/** Offset of (target, targetOffset) within the *visible* text of `root`. */
-function visibleOffset(root: Node, target: Node, targetOffset: number): number {
+/**
+ * Offset of (target, targetOffset) within the *visible* text of `root`.
+ * Endpoints inside hidden KaTeX MathML map to the start/end of that formula's
+ * visible glyphs, so a formula can still be selected.
+ */
+function visibleOffset(
+  root: Node,
+  target: Node,
+  targetOffset: number,
+  mathmlEdge: "start" | "end",
+): number {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let offset = 0;
   while (walker.nextNode()) {
     const node = walker.currentNode;
     if (node === target) {
-      return isInsideKatexMathml(node) ? offset : offset + targetOffset;
+      if (isInsideKatexMathml(node)) {
+        const el =
+          node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+        const katex = el?.closest?.(".katex") ?? null;
+        const visibleLen = katex ? getVisibleText(katex).length : 0;
+        return mathmlEdge === "start" ? offset : offset + visibleLen;
+      }
+      return offset + targetOffset;
     }
     if (isInsideKatexMathml(node)) continue;
     offset += node.textContent?.length || 0;
@@ -207,6 +223,47 @@ function findClosestOccurrence(
   return bestIdx;
 }
 
+/**
+ * Whitespace-insensitive occurrence search. KaTeX/Markdown normalise spacing
+ * (e.g. raw `$$\n\\frac{a}{b}\n$$` vs reconstructed `$$\\frac{a}{b}$$`), so an
+ * exact search can fail. This finds the raw span whose non-space characters
+ * match the needle, keeping the real raw indices.
+ */
+function findOccurrenceNormalized(
+  haystack: string,
+  needle: string,
+  refLen: number,
+  refPos: number,
+): { start: number; end: number } | null {
+  const n = needle.replace(/\s+/g, "");
+  if (!n) return null;
+
+  let stripped = "";
+  const map: number[] = [];
+  for (let i = 0; i < haystack.length; i++) {
+    if (/\s/.test(haystack[i])) continue;
+    stripped += haystack[i];
+    map.push(i);
+  }
+
+  const approx = refLen > 0 ? Math.round((refPos / refLen) * stripped.length) : 0;
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  let from = 0;
+  while (true) {
+    const idx = stripped.indexOf(n, from);
+    if (idx === -1) break;
+    const dist = Math.abs(idx - approx);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = idx;
+    }
+    from = idx + 1;
+  }
+  if (bestIdx < 0) return null;
+  return { start: map[bestIdx], end: map[bestIdx + n.length - 1] + 1 };
+}
+
 /** Map visible-rendered offsets → raw-markdown offsets via reconstructed source text. */
 function renderedToRawOffsets(
   rawContent: string,
@@ -215,8 +272,7 @@ function renderedToRawOffsets(
   renderedEnd: number,
   sourceTexts: string[],
 ): { start: number; end: number } {
-  // Prefer an exact raw substring (reconstructed Markdown/LaTeX); order matters:
-  // the caller passes the richest candidate first.
+  // 1. Exact raw substring (reconstructed Markdown/LaTeX); richest candidate first.
   for (const sourceText of sourceTexts) {
     if (!sourceText) continue;
     const rawIdx = findClosestOccurrence(rawContent, sourceText, renderedText.length, renderedStart);
@@ -224,6 +280,13 @@ function renderedToRawOffsets(
       return { start: rawIdx, end: rawIdx + sourceText.length };
     }
   }
+  // 2. Whitespace-insensitive match (handles math with different spacing).
+  for (const sourceText of sourceTexts) {
+    if (!sourceText) continue;
+    const pos = findOccurrenceNormalized(rawContent, sourceText, renderedText.length, renderedStart);
+    if (pos) return pos;
+  }
+  // 3. Last resort: proportional estimate.
   const rLen = renderedText.length || 1;
   return {
     start: Math.round((renderedStart / rLen) * rawContent.length),
@@ -375,8 +438,8 @@ export function MarkdownPane({
 
     // Visible-text space: consistent for storage + highlight (skips MathML)
     const visibleText = getVisibleText(contentEl);
-    const a = visibleOffset(contentEl, sel.anchorNode, sel.anchorOffset);
-    const b = visibleOffset(contentEl, sel.focusNode, sel.focusOffset);
+    const a = visibleOffset(contentEl, sel.anchorNode, sel.anchorOffset, "start");
+    const b = visibleOffset(contentEl, sel.focusNode, sel.focusOffset, "end");
     const rStart = Math.min(a, b);
     const rEnd = Math.max(a, b);
 
