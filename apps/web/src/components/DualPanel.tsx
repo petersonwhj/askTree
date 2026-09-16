@@ -130,7 +130,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   // markdown of the node the selection came from — which may be the left (parent)
   // or right (current) panel. Slice that node's content so the offsets line up.
   const displayRawText = useMemo(() => {
-    if (!selectedText) return null;
+    if (!selectedText || !currentNode || !parentNode) return null;
     const sourceContent =
       selectedText.nodeId === parentNode.id
         ? parentContent
@@ -144,7 +144,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }, [selectedText, parentContent, childContent, parentNode, currentNode]);
 
   const selectionSide: "left" | "right" | null =
-    selectedText && currentNode
+    selectedText && currentNode && parentNode
       ? selectedText.nodeId === parentNode.id
         ? "left"
         : selectedText.nodeId === currentNode.id
@@ -163,7 +163,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   // The passage in the left pane that the right (current) node was asked about.
   const parentHighlight = useMemo(() => {
-    if (currentNode.id === parentNode.id) return null;
+    if (!currentNode || !parentNode || currentNode.id === parentNode.id) return null;
     // Read from the store so the quote reflects the current edges (fresh after
     // navigation or deletion), not a stale activePath snapshot.
     const edges = store.getNode(parentNode.id)?.children ?? parentNode.children;

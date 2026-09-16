@@ -186,6 +186,12 @@ describe("DualPanel panel actions and free-ask target", () => {
     });
   });
 
+  it("renders the empty state when there is no current node", () => {
+    mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null };
+    render(<DualPanel />);
+    expect(screen.getByText(/Welcome to AskTree/i)).toBeTruthy();
+  });
+
   it("refreshes explored marks immediately after an off-path deletion", async () => {
     // A sibling edge on the parent that is not on the active path.
     const sibling = await store.addChild(
