@@ -1,3 +1,5 @@
+**English** | [简体中文](README.zh-CN.md)
+
 # AskTree
 
 **Turn any article into a tree of questions you can actually explore.**
