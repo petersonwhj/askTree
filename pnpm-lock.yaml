@@ -53,9 +53,9 @@ importers:
       markdown-it:
         specifier: ^14.2.0
         version: 14.2.0
-      markdown-it-katex:
-        specifier: ^2.0.3
-        version: 2.0.3
+      markdown-it-texmath:
+        specifier: 1.0.0
+        version: 1.0.0
       react:
         specifier: ^18.3
         version: 18.3.1
@@ -1238,8 +1238,8 @@ packages:
     resolution: {integrity: sha512-g3FeP20LNwhALb/6Cz6Dd4F2ngze0jz7tbzrD2wAV+o9FeNHe4rL+yK2md0J/fiSf1sa1ADhXqi5+oVwOM/eGw==}
     engines: {node: '>=8'}
 
-  markdown-it-katex@2.0.3:
-    resolution: {integrity: sha512-nUkkMtRWeg7OpdflamflE/Ho/pWl64Lk9wNBKOmaj33XkQdumhXAIYhI0WO03GeiycPCsxbmX536V5NEXpC3Ng==}
+  markdown-it-texmath@1.0.0:
+    resolution: {integrity: sha512-4hhkiX8/gus+6e53PLCUmUrsa6ZWGgJW2XCW6O0ASvZUiezIK900ZicinTDtG3kAO2kon7oUA/ReWmpW2FByxg==}
 
   markdown-it@14.2.0:
     resolution: {integrity: sha512-1TGiQiJVRQ3NPmZH6sx5Cfnmg6GQm9jvC1ch4TK511NjSJvjzKLzn5pPfZRNZkRPZP0HqCioSndqH8v2nRaWVQ==}
@@ -2694,9 +2694,7 @@ snapshots:
     dependencies:
       semver: 6.3.1
 
-  markdown-it-katex@2.0.3:
-    dependencies:
-      katex: 0.17.0
+  markdown-it-texmath@1.0.0: {}
 
   markdown-it@14.2.0:
     dependencies:

@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
-import mk from "markdown-it-katex";
+import texmath from "markdown-it-texmath";
+import katex from "katex";
 import DOMPurify from "dompurify";
 
 const MATHML_TAGS = [
@@ -21,7 +22,18 @@ const MATHML_ATTRS = [
 ];
 
 const md = new MarkdownIt({ html: false, breaks: true, linkify: true })
-  .use(mk);
+  .use(texmath, {
+    engine: katex,
+    delimiters: ["dollars", "brackets"],
+  });
+
+for (const [index, rule] of texmath.mergeDelimiters(["dollars", "brackets"]).block.entries()) {
+  const parseMathBlock = texmath.block(rule);
+  md.block.ruler.before("paragraph", `math_paragraph_${index}`, (state, startLine, endLine, silent) => {
+    if (state.sCount[startLine] - state.blkIndent >= 4) return false;
+    return parseMathBlock(state, startLine, endLine, silent);
+  }, { alt: ["paragraph"] });
+}
 
 export function renderMarkdown(content: string): string {
   try {

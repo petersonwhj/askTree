@@ -97,6 +97,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [splitRatio, setSplitRatio] = useState(50);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
+  const emptyFileRef = useRef<HTMLInputElement>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -212,6 +213,16 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
       setNewTitle("");
     };
 
+    const handleOpenFile = async (file: File) => {
+      try {
+        const text = await file.text();
+        const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
+        await createRootTree(text, title || "Untitled");
+      } catch (err) {
+        setError("Failed to read file: " + (err as Error).message);
+      }
+    };
+
     return (
       <div className="dual-panel">
         <div
@@ -234,7 +245,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
         >
           <h2>Welcome to AskTree</h2>
-          <p>Paste an article, drop a Markdown file, or use the 📂 button above to start learning.</p>
+          <p>Open a Markdown file, paste an article, or drop a file here to start learning.</p>
 
           <input
             type="text" placeholder="Article title..." value={newTitle}
@@ -248,7 +259,27 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
           />
-          <button onClick={handleStart}>Start Learning</button>
+          <div className="empty-state-actions">
+            <button onClick={handleStart}>Start Learning</button>
+            <button
+              className="secondary"
+              onClick={() => emptyFileRef.current?.click()}
+              type="button"
+            >
+              📂 Open Markdown File
+            </button>
+          </div>
+          <input
+            ref={emptyFileRef}
+            type="file"
+            accept=".md,.markdown,.txt"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleOpenFile(file);
+              e.target.value = "";
+            }}
+          />
 
           {error && (
             <div className="error-banner">

@@ -88,7 +88,7 @@ The learner is focused on "{selected_text}".
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   maxDepth: 3,
   contextRadius: [200, 100, 50],
-  template: `System: You are a study assistant. A learner is reading an article and drilling into it with follow-up questions. Answer the question using the context below. Focus on the highlighted term — marked with «» in the passage — and answer user's question regarding the highlighted term; treat the earlier trail only as background for how the learner arrived, not as the subject. Be clear and concise, define terms in plain language, and build the explanation up step by step. If the context is not enough to answer confidently, say what is specifically missing rather than guessing. Reply in the same language as the question.
+  template: `System: You are a study assistant. A learner is reading an article and drilling into it with follow-up questions. Answer the question using the context below. Focus on the highlighted term — marked with «» in the passage — and answer user's question regarding the highlighted term; treat the earlier trail only as background for how the learner arrived, not as the subject. Be clear and concise, define terms in plain language, and build the explanation up step by step. Write every formula in LaTeX between dollar signs: $$...$$ for display math and $...$ for inline math. Always wrap display environments such as \\begin{align}...\\end{align} in $$...$$ as well. If the context is not enough to answer confidently, say what is specifically missing rather than guessing. Reply in the same language as the question.
 
 User:
 I am studying the article "{root_title}".

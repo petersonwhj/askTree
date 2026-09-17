@@ -192,6 +192,26 @@ describe("DualPanel panel actions and free-ask target", () => {
     expect(screen.getByText(/Welcome to AskTree/i)).toBeTruthy();
   });
 
+  it("starts a tree from a markdown file opened in the empty state", async () => {
+    const createRootTree = vi.fn().mockResolvedValue(undefined);
+    mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null, createRootTree };
+    render(<DualPanel />);
+
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    fireEvent.click(screen.getByRole("button", { name: /open markdown file/i }));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input?.accept).toContain(".md");
+
+    const file = new File(["# Hi\n\nbody"], "My Article.md", { type: "text/markdown" });
+    // jsdom does not implement Blob.text(), which real browsers provide.
+    Object.defineProperty(file, "text", { value: () => Promise.resolve("# Hi\n\nbody") });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(createRootTree).toHaveBeenCalledWith("# Hi\n\nbody", "My Article"));
+  });
+
   it("refreshes explored marks immediately after an off-path deletion", async () => {
     // A sibling edge on the parent that is not on the active path.
     const sibling = await store.addChild(
