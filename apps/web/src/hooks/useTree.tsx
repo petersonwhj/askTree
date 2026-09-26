@@ -9,6 +9,7 @@ import {
   type PromptConfig,
   type TreeStore,
   type TreeSummary,
+  type DocumentKind,
 } from "@asktree/core";
 import { IndexedDBStorageAdapter } from "../storage/indexeddb-adapter";
 
@@ -19,7 +20,7 @@ interface TreeContextValue {
   trees: TreeSummary[];
   activeTreeId: string | null;
   setActiveTree: (id: string | null) => Promise<void>;
-  createDocument: (content: string, title: string) => Promise<void>;
+  createDocument: (content: string, title: string, kind?: DocumentKind) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   renameDocument: (id: string, title: string) => Promise<void>;
   exportDocument: (id: string) => Promise<ExportBundle | null>;
@@ -132,10 +133,10 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     refresh(forest);
   }, [refresh]);
 
-  const createDocument = useCallback(async (content: string, title: string) => {
+  const createDocument = useCallback(async (content: string, title: string, kind?: DocumentKind) => {
     const forest = forestRef.current;
     if (!forest) return;
-    await forest.createTree(content, title);
+    await forest.createTree(content, title, kind);
     setSelectedText(null);
     refresh(forest);
   }, [refresh]);
