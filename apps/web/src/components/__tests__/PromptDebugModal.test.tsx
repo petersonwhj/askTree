@@ -102,4 +102,14 @@ describe("PromptDebugModal", () => {
     expect(copied).toContain("study assistant");
     expect(copied).toContain(question);
   });
+
+  it("notes how many images were attached", async () => {
+    const root = mocks.store.getRoot();
+    mocks.store.getNode(root.id)!.children[0].images = [{ mediaType: "image/png", data: "QUJD" }];
+
+    const { container } = render(<PromptDebugModal nodeId={childId} onClose={() => {}} />);
+    await waitFor(() =>
+      expect(container.querySelector(".prompt-debug-images")?.textContent).toContain("1 image"),
+    );
+  });
 });

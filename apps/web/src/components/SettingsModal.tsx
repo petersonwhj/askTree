@@ -226,6 +226,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
+        <p style={{ fontSize: 12, color: "#8b949e", marginTop: 4, marginBottom: 12 }}>
+          Asking about an image requires a vision-capable model.
+        </p>
+
         <label>Endpoint</label>
         <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={preset.endpointPlaceholder} />
 
