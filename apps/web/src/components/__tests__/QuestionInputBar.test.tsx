@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QuestionInputBar } from "../QuestionInputBar";
 
 const baseProps = {
@@ -52,7 +52,7 @@ describe("QuestionInputBar", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
 
-    expect(onSend).toHaveBeenCalledWith("why?");
+    expect(onSend).toHaveBeenCalledWith("why?", []);
   });
 
   it("generates and shows suggested questions on demand", async () => {
@@ -87,7 +87,7 @@ describe("QuestionInputBar", () => {
     fireEvent.click(screen.getByRole("button", { name: /suggest a question/i }));
     fireEvent.click(await screen.findByText("Why does it matter?"));
 
-    expect(onSend).toHaveBeenCalledWith("Why does it matter?");
+    expect(onSend).toHaveBeenCalledWith("Why does it matter?", []);
   });
 
   it("refreshes suggestions for a new batch", async () => {
@@ -146,5 +146,81 @@ describe("QuestionInputBar", () => {
     expect(await screen.findByText(/LLM not configured/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /open settings/i }));
     expect(onOpenSettings).toHaveBeenCalled();
+  });
+});
+
+describe("QuestionInputBar images", () => {
+  function pngFile(name = "shot.png"): File {
+    return new File([Uint8Array.from([1, 2, 3])], name, { type: "image/png" });
+  }
+
+  it("attaches a picked image, shows a thumbnail, and sends it", async () => {
+    const onSend = vi.fn();
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText={null} onSend={onSend} />,
+    );
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    fireEvent.change(screen.getByPlaceholderText(/ask anything/i), {
+      target: { value: "what is this?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
+    const [question, images] = onSend.mock.calls[0];
+    expect(question).toBe("what is this?");
+    expect(images).toHaveLength(1);
+    expect(images[0].mediaType).toBe("image/png");
+  });
+
+  it("removes an attached image", async () => {
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText={null} onSend={vi.fn()} />,
+    );
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /remove image/i }));
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(0));
+  });
+
+  it("clears the question, the images and the selection context", async () => {
+    const onClearContext = vi.fn();
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText="selected text" onClearContext={onClearContext} />,
+    );
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    const textarea = screen.getByPlaceholderText(/about:/i) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "a question" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /clear context/i }));
+
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(0));
+    expect((screen.getByPlaceholderText(/about:/i) as HTMLTextAreaElement).value).toBe("");
+    expect(onClearContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a full-size preview when a thumbnail is clicked", async () => {
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText={null} onSend={vi.fn()} />,
+    );
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    fireEvent.click(container.querySelector(".ask-image img")!);
+    await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: /close preview/i }));
+    await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeNull());
   });
 });

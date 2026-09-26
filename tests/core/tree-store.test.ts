@@ -224,4 +224,26 @@ describe("TreeStore", () => {
       expect(restored.kind).toBe("markdown");
     });
   });
+
+  describe("edge images", () => {
+    it("stores images on the edge and round-trips them", async () => {
+      const root = await store.createTree("r", "Root");
+      const images = [{ mediaType: "image/png", data: "QUJD" }];
+      await store.addChild(
+        root.id,
+        { selectedText: "x", startPos: 0, endPos: 1, question: "q", images },
+        "answer",
+      );
+      expect(store.getRoot().children[0].images).toEqual(images);
+
+      const restored = await TreeStore.deserialize(store.serialize(), adapter, "tree-2");
+      expect(restored.getRoot().children[0].images).toEqual(images);
+    });
+
+    it("leaves images undefined when none were attached", async () => {
+      const root = await store.createTree("r", "Root");
+      await store.addChild(root.id, { selectedText: "x", startPos: 0, endPos: 1, question: "q" }, "a");
+      expect(store.getRoot().children[0].images).toBeUndefined();
+    });
+  });
 });

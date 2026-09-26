@@ -305,4 +305,21 @@ describe("DualPanel panel actions and free-ask target", () => {
       expect(current.children.some((e) => e.question === "Why?")).toBe(true);
     });
   });
+
+  it("shows the images a question was asked with", async () => {
+    store.getNode(rootId)!.children[0].images = [{ mediaType: "image/png", data: "QUJD" }];
+
+    const { container } = render(<DualPanel />);
+    await waitFor(() => expect(container.querySelectorAll(".node-image").length).toBe(1));
+  });
+
+  it("opens a full-size preview when an attached image is clicked", async () => {
+    store.getNode(rootId)!.children[0].images = [{ mediaType: "image/png", data: "QUJD" }];
+
+    const { container } = render(<DualPanel />);
+    await waitFor(() => expect(container.querySelectorAll(".node-image").length).toBe(1));
+
+    fireEvent.click(container.querySelector(".node-image")!);
+    await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeTruthy());
+  });
 });

@@ -239,6 +239,7 @@ body {
   font-size: 12px; color: #e2b714; background: #e2b71420;
   padding: 4px 10px; border-radius: 4px; align-self: flex-start;
   max-width: 100%; line-height: 1.6;
+  flex: 1 1 auto; min-width: 0;
   max-height: 4.5em;           /* clamp long selections */
   overflow-y: auto;
 }
@@ -256,6 +257,15 @@ body {
 }
 
 .free-ask-row { display: flex; align-items: center; gap: 10px; }
+
+.bar-tools { display: flex; gap: 8px; margin-left: auto; flex: none; align-self: center; }
+.bar-tool {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 1px solid #30363d; border-radius: 6px;
+  color: #c9d1d9; cursor: pointer; font-size: 12px; padding: 3px 8px;
+  white-space: nowrap;
+}
+.bar-tool:hover { background: #21262d; }
 
 .free-ask-toggle {
   display: inline-flex; border: 1px solid #30363d; border-radius: 6px; overflow: hidden;
@@ -449,5 +459,29 @@ body {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
   color: #8b949e; border: 1px solid #30363d; border-radius: 4px;
   padding: 0 4px; margin-left: 4px;
+}
+
+.ask-images { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px 0; }
+.ask-image { position: relative; }
+.ask-image img { height: 48px; border-radius: 6px; border: 1px solid #30363d; display: block; }
+.ask-image button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: #30363d; border: 1px solid #484f58; color: #c9d1d9; cursor: pointer; font-size: 10px; line-height: 1; padding: 0; }
+.node-images { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 0; }
+.node-image { max-height: 120px; border-radius: 6px; border: 1px solid #30363d; cursor: zoom-in; }
+
+.ask-image img { cursor: zoom-in; }
+
+.image-lightbox-overlay {
+  position: fixed; inset: 0; background: #000000cc; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.image-lightbox-overlay img {
+  max-width: 90vw; max-height: 90vh; border-radius: 8px;
+  box-shadow: 0 12px 40px #00000080;
+}
+.image-lightbox-close {
+  position: absolute; top: 16px; right: 20px;
+  width: 32px; height: 32px; border-radius: 6px;
+  background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+  cursor: pointer; font-size: 14px; line-height: 1;
 }
 

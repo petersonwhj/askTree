@@ -20,6 +20,7 @@ export function PromptDebugModal({
 }: Props) {
   const { store, promptConfig } = useTree();
   const [question, setQuestion] = useState("");
+  const [imageCount, setImageCount] = useState(0);
   const [system, setSystem] = useState("");
   const [user, setUser] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,8 @@ export function PromptDebugModal({
         const edgeSelection = edge?.selectedText
           ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
           : null;
+
+        setImageCount(edge?.images?.length ?? 0);
 
         // Determine the question from the node's title (which is the question text)
         const q = edge?.question || node.title;
@@ -150,6 +153,12 @@ export function PromptDebugModal({
         >
           {question}
         </div>
+
+        {imageCount > 0 && (
+          <p className="prompt-debug-images" style={{ fontSize: 12, color: "#8b949e", marginTop: -12, marginBottom: 16 }}>
+            {imageCount} image{imageCount === 1 ? "" : "s"} attached
+          </p>
+        )}
 
         {loading ? (
           <p style={{ color: "#8b949e" }}>Rebuilding prompt...</p>

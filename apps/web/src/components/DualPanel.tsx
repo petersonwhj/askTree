@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
+import { ImageLightbox } from "./ImageLightbox";
 import { QuestionInputBar, type AskTarget } from "./QuestionInputBar";
 import { PromptDebugModal } from "./PromptDebugModal";
 import { saveTextFile } from "../lib/save-file";
@@ -12,7 +13,7 @@ import {
   SUGGEST_TEMPLATE,
   parseSuggestedQuestions,
 } from "@asktree/core";
-import type { Node, TreeStore } from "@asktree/core";
+import type { Node, TreeStore, AskImage } from "@asktree/core";
 
 /** Passages already asked about: spans from the node's surviving child edges. */
 function exploredSpans(
@@ -95,6 +96,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [splitRatio, setSplitRatio] = useState(50);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
@@ -185,6 +187,15 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     () => (showExplored && store ? exploredSpans(store, currentNode) : []),
     [showExplored, store, currentNode, treeVersion],
   );
+
+  const edgeImagesFor = useCallback((node: Node | undefined) => {
+    if (!node || !store || !node.parentId) return [];
+    const edges = store.getNode(node.parentId)?.children ?? [];
+    return edges.find((e) => e.targetNodeId === node.id)?.images ?? [];
+  }, [store, treeVersion]);
+
+  const parentEdgeImages = useMemo(() => edgeImagesFor(parentNode), [edgeImagesFor, parentNode]);
+  const currentEdgeImages = useMemo(() => edgeImagesFor(currentNode), [edgeImagesFor, currentNode]);
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -286,7 +297,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   if (!store) return null;
 
-  const handleSendQuestion = async (question: string) => {
+  const handleSendQuestion = async (question: string, images: AskImage[] = []) => {
     setError(null);
     if (!store) return;
     const activeStore = store;
@@ -320,6 +331,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         startPos: askedStart,
         endPos: askedEnd,
         question,
+        ...(images.length > 0 ? { images } : {}),
       }, placeholder);
     } catch (e) {
       setError("Failed to create node: " + (e as Error).message);
@@ -344,6 +356,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           contextSlices: slices,
           system: rendered.system,
           user: rendered.user,
+          ...(images.length > 0 ? { images } : {}),
         });
         await activeStore.updateContent(childId, answer);
         setChildContent(answer);
@@ -437,6 +450,23 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             </select>
           </div>
         </div>
+        {parentEdgeImages.length > 0 && (
+          <div className="node-images">
+            {parentEdgeImages.map((img, i) => {
+              const src = `data:${img.mediaType};base64,${img.data}`;
+              return (
+                <img
+                  key={i}
+                  className="node-image"
+                  src={src}
+                  alt="attached"
+                  title="Click to preview"
+                  onClick={() => setPreviewImage(src)}
+                />
+              );
+            })}
+          </div>
+        )}
         {parentContent !== null && (
           <MarkdownPane
             content={parentContent}
@@ -487,6 +517,23 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 </select>
               </div>
             </div>
+            {currentEdgeImages.length > 0 && (
+              <div className="node-images">
+                {currentEdgeImages.map((img, i) => {
+                  const src = `data:${img.mediaType};base64,${img.data}`;
+                  return (
+                    <img
+                      key={i}
+                      className="node-image"
+                      src={src}
+                      alt="attached"
+                      title="Click to preview"
+                      onClick={() => setPreviewImage(src)}
+                    />
+                  );
+                })}
+              </div>
+            )}
             <MarkdownPane
               content={childContent}
               onTextSelected={(text, start, end) => handleTextSelected(text, start, end, currentNode.id)}
@@ -521,6 +568,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onRequestSuggestions={requestSuggestions}
           onOpenSettings={onOpenSettings}
           onDebugSuggestions={() => setDebugSuggestion(true)}
+          onClearContext={() => setSelectedText(null)}
         />
       </div>
     </div>
@@ -534,6 +582,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         onClose={() => setDebugSuggestion(false)}
       />
     )}
+    {previewImage && <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />}
     </>
   );
 }

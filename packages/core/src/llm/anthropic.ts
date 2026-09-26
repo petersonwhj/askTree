@@ -34,6 +34,18 @@ export async function askAnthropic(config: LLMConfig, options: AskOptions): Prom
       `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`;
   }
 
+  const images = options.images ?? [];
+  const userMessageContent =
+    images.length > 0
+      ? [
+          { type: "text", text: userContent },
+          ...images.map((img) => ({
+            type: "image",
+            source: { type: "base64", media_type: img.mediaType, data: img.data },
+          })),
+        ]
+      : userContent;
+
   const resp = await fetch(url, {
     method: "POST",
     headers,
@@ -44,7 +56,7 @@ export async function askAnthropic(config: LLMConfig, options: AskOptions): Prom
       messages: [
         {
           role: "user",
-          content: userContent,
+          content: userMessageContent,
         },
       ],
       stream: false,

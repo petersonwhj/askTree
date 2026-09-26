@@ -12,27 +12,34 @@ export async function askOpenAICompat(config: LLMConfig, options: AskOptions): P
     headers["Authorization"] = authValue;
   }
 
-  // Use rendered prompt when available; fall back to ad-hoc concatenation
-  const messages: Array<{ role: string; content: string }> = [];
-  if (options.system && options.user) {
-    messages.push(
-      { role: "system", content: options.system },
-      { role: "user", content: options.user },
-    );
-  } else {
-    messages.push(
-      {
-        role: "system",
-        content: "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
-      },
-      {
-        role: "user",
-        content:
-          options.contextSlices.map((s) => s.surrounding).join("\n\n") +
-          `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`,
-      },
-    );
-  }
+  const userText =
+    options.system && options.user
+      ? options.user
+      : options.contextSlices.map((s) => s.surrounding).join("\n\n") +
+        `\n\nQuestion about "${options.contextSlices[0]?.selectedText || "this"}": ${options.question}`;
+
+  const images = options.images ?? [];
+  const userContent =
+    images.length > 0
+      ? [
+          { type: "text", text: userText },
+          ...images.map((img) => ({
+            type: "image_url",
+            image_url: { url: `data:${img.mediaType};base64,${img.data}` },
+          })),
+        ]
+      : userText;
+
+  const messages: Array<{ role: string; content: unknown }> = [
+    {
+      role: "system",
+      content:
+        options.system && options.user
+          ? options.system
+          : "You are a helpful learning assistant. Explain concepts clearly and thoroughly.",
+    },
+    { role: "user", content: userContent },
+  ];
 
   const resp = await fetch(url, {
     method: "POST",
