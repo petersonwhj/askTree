@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import type { AskImage } from "@asktree/core";
 import { renderMarkdown } from "../lib/markdown";
+import { fileToAskImage } from "../lib/image";
 
 export type AskTarget = "left" | "right";
 
 interface Props {
   contextText: string | null;
   rawText?: string | null;  // raw markdown slice for proper math rendering
-  onSend: (question: string) => void;
+  onSend: (question: string, images: AskImage[]) => void;
   isLoading: boolean;
   freeAskTarget?: "left" | "right";
   onFreeAskTargetChange?: (target: "left" | "right") => void;
@@ -39,6 +41,26 @@ export function QuestionInputBar({
 }: Props) {
   const [question, setQuestion] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const [images, setImages] = useState<AskImage[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = async (files: File[]) => {
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
+    const added = await Promise.all(imageFiles.map(fileToAskImage));
+    setImages((prev) => [...prev, ...added]);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData?.items ?? [])
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (files.length > 0) {
+      e.preventDefault();
+      void addFiles(files);
+    }
+  };
 
   const [showSuggest, setShowSuggest] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -80,8 +102,9 @@ export function QuestionInputBar({
 
   const handleSend = () => {
     if (!question.trim() || isLoading) return;
-    onSend(question.trim());
+    onSend(question.trim(), images);
     setQuestion("");
+    setImages([]);
   };
 
   const loadSuggestions = async () => {
@@ -111,7 +134,8 @@ export function QuestionInputBar({
 
   const chooseSuggestion = (text: string) => {
     setShowSuggest(false);
-    onSend(text);
+    onSend(text, images);
+    setImages([]);
   };
 
   return (
@@ -216,12 +240,31 @@ export function QuestionInputBar({
         </div>
       )}
 
+      {images.length > 0 && (
+        <div className="ask-images">
+          {images.map((img, i) => (
+            <div className="ask-image" key={i}>
+              <img src={`data:${img.mediaType};base64,${img.data}`} alt="attached" />
+              <button
+                type="button"
+                aria-label="Remove image"
+                title="Remove image"
+                onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="input-box">
         <textarea
           ref={taRef}
           placeholder={contextText ? `About: ${contextText.slice(0, 40)}...` : "Ask anything..."}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
+          onPaste={handlePaste}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
               e.preventDefault();
@@ -232,6 +275,26 @@ export function QuestionInputBar({
           rows={2}
         />
         <div className="input-toolbar">
+          <button
+            type="button"
+            className="assist-btn"
+            aria-label="Attach image"
+            title="Attach image"
+            onClick={() => imageInputRef.current?.click()}
+          >
+            📎
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              void addFiles(Array.from(e.target.files ?? []));
+              e.target.value = "";
+            }}
+          />
           <button
             type="button"
             className={`assist-btn${showSuggest ? " active" : ""}`}
