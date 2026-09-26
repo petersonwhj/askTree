@@ -11,6 +11,10 @@ vi.mock("../../hooks/useTree", () => ({
   useTree: () => mocks.ctx,
 }));
 
+vi.mock("../../lib/import-docx", () => ({
+  docxToMarkdown: vi.fn(async () => "# Converted"),
+}));
+
 import { DualPanel } from "../DualPanel";
 
 describe("DualPanel prompt debug trigger", () => {
@@ -209,7 +213,19 @@ describe("DualPanel panel actions and free-ask target", () => {
     Object.defineProperty(file, "text", { value: () => Promise.resolve("# Hi\n\nbody") });
     fireEvent.change(input, { target: { files: [file] } });
 
-    await waitFor(() => expect(createDocument).toHaveBeenCalledWith("# Hi\n\nbody", "My Article"));
+    await waitFor(() => expect(createDocument).toHaveBeenCalledWith("# Hi\n\nbody", "My Article", "markdown"));
+  });
+
+  it("opens a .docx in the empty state as a docx document", async () => {
+    const createDocument = vi.fn().mockResolvedValue(undefined);
+    mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null, createDocument };
+    render(<DualPanel />);
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["x"], "My Article.docx");
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(createDocument).toHaveBeenCalledWith("# Converted", "My Article", "docx"));
   });
 
   it("refreshes explored marks immediately after an off-path deletion", async () => {

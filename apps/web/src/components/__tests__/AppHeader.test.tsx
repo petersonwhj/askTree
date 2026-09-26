@@ -5,6 +5,10 @@ const mocks = vi.hoisted(() => ({ ctx: {} as Record<string, unknown> }));
 
 vi.mock("../../hooks/useTree", () => ({ useTree: () => mocks.ctx }));
 
+vi.mock("../../lib/import-docx", () => ({
+  docxToMarkdown: vi.fn(async () => "# Converted"),
+}));
+
 import { AppHeader } from "../AppHeader";
 
 const baseCtx = () => ({
@@ -104,5 +108,19 @@ describe("AppHeader forest actions", () => {
 
     render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
     expect(screen.queryByTitle(/clear current tree/i)).toBeNull();
+  });
+
+  it("opens a .docx as a docx document", async () => {
+    const createDocument = vi.fn();
+    mocks.ctx = { ...baseCtx(), createDocument };
+
+    const { container } = render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    const input = container.querySelector(
+      'header input[accept=".md,.markdown,.txt,.docx"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
+    fireEvent.change(input, { target: { files: [new File(["x"], "My Article.docx")] } });
+
+    await waitFor(() => expect(createDocument).toHaveBeenCalledWith("# Converted", "My Article", "docx"));
   });
 });

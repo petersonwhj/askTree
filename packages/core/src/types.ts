@@ -18,8 +18,12 @@ export interface Node {
   createdAt: number;
 }
 
+export type DocumentKind = "markdown" | "docx" | "pdf";
+
 export interface TreeJSON {
   version: number;
+  /** Source format of the document. Absent means "markdown". */
+  kind?: DocumentKind;
   rootNodeId: string;
   nodes: Record<string, Node>;
   createdAt: number;
@@ -44,6 +48,7 @@ export interface TreeSummary {
   id: string;
   title: string;
   updatedAt: number;
+  kind: DocumentKind;
 }
 
 export interface LLMConfig {

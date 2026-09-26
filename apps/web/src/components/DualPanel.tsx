@@ -5,6 +5,7 @@ import { QuestionInputBar, type AskTarget } from "./QuestionInputBar";
 import { PromptDebugModal } from "./PromptDebugModal";
 import { saveTextFile } from "../lib/save-file";
 import { sanitizeFilename } from "../lib/filename";
+import { openDocumentFile } from "../lib/open-document";
 import {
   collectContext,
   renderPrompt,
@@ -216,11 +217,9 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
     const handleOpenFile = async (file: File) => {
       try {
-        const text = await file.text();
-        const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-        await createDocument(text, title || "Untitled");
+        await openDocumentFile(file, createDocument);
       } catch (err) {
-        setError("Failed to read file: " + (err as Error).message);
+        setError((err as Error).message);
       }
     };
 
@@ -232,15 +231,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             e.preventDefault();
             setIsDragOver(false);
             const file = e.dataTransfer.files[0];
-            if (file) {
-              try {
-                const text = await file.text();
-                const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-                await createDocument(text, title);
-              } catch (err) {
-                setError("Failed to read file: " + (err as Error).message);
-              }
-            }
+            if (file) await handleOpenFile(file);
           }}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
@@ -273,7 +264,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           <input
             ref={emptyFileRef}
             type="file"
-            accept=".md,.markdown,.txt"
+            accept=".md,.markdown,.txt,.docx"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

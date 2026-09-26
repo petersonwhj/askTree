@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const mdInput = (page: Page) => page.locator('header input[accept=".md,.markdown,.txt"]');
+const mdInput = (page: Page) => page.locator('header input[accept=".md,.markdown,.txt,.docx"]');
 
 async function openDoc(page: Page, name: string, body: string) {
   await mdInput(page).setInputFiles({

@@ -24,8 +24,8 @@ describe("TreeSidebar (forest)", () => {
     mocks.ctx = {
       store: alpha,
       trees: [
-        { id: "alpha", title: "Alpha", updatedAt: 1 },
-        { id: "beta", title: "Beta", updatedAt: 2 },
+        { id: "alpha", title: "Alpha", updatedAt: 1, kind: "markdown" },
+        { id: "beta", title: "Beta", updatedAt: 2, kind: "docx" },
       ],
       activeTreeId: "alpha",
       setActiveTree: vi.fn(),
@@ -50,6 +50,14 @@ describe("TreeSidebar (forest)", () => {
     render(<TreeSidebar />);
     // The row already represents the root; the subtree must start at its children.
     expect(screen.getAllByText("Alpha")).toHaveLength(1);
+  });
+
+  it("marks the document kind, badging only non-markdown documents", () => {
+    render(<TreeSidebar />);
+    expect(screen.getByTestId("doc-row-alpha").getAttribute("data-kind")).toBe("markdown");
+    expect(screen.getByTestId("doc-row-beta").getAttribute("data-kind")).toBe("docx");
+    expect(screen.getByTestId("doc-row-beta").querySelector(".doc-kind")?.textContent).toBe("docx");
+    expect(screen.getByTestId("doc-row-alpha").querySelector(".doc-kind")).toBeNull();
   });
 
   it("switches document when a row is clicked", () => {

@@ -13,10 +13,13 @@
     "@types/markdown-it": "^14.1.2",
     "dompurify": "^3.0",
     "katex": "^0.17.0",
+    "mammoth": "1.12.3",
     "markdown-it": "^14.2.0",
     "markdown-it-texmath": "1.0.0",
     "react": "^18.3",
-    "react-dom": "^18.3"
+    "react-dom": "^18.3",
+    "turndown": "7.2.4",
+    "turndown-plugin-gfm": "1.0.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.0",
@@ -24,6 +27,7 @@
     "@types/dompurify": "^3.0",
     "@types/react": "^18.3",
     "@types/react-dom": "^18.3",
+    "@types/turndown": "5.0.6",
     "@vitejs/plugin-react": "^4.0",
     "fake-indexeddb": "^6.0",
     "jsdom": "^25.0",

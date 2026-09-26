@@ -1,4 +1,4 @@
-import type { Node, TreeJSON, ExportBundle, ForestIndex, TreeSummary } from "./types";
+import type { Node, TreeJSON, ExportBundle, ForestIndex, TreeSummary, DocumentKind } from "./types";
 import type { StorageAdapter } from "./storage-adapter";
 import { TreeStore } from "./tree-store";
 
@@ -35,6 +35,7 @@ export class ForestStore {
           id,
           title: store.getRoot().title,
           updatedAt: store.serialize().updatedAt,
+          kind: store.kind,
         });
       } catch {
         // tree has no root — skip
@@ -63,9 +64,9 @@ export class ForestStore {
     await this.persistIndex({ trees: this.index.trees, activeTreeId: id });
   }
 
-  async createTree(content: string, title: string): Promise<Node> {
+  async createTree(content: string, title: string, kind: DocumentKind = "markdown"): Promise<Node> {
     const treeId = crypto.randomUUID();
-    const store = new TreeStore(this.adapter, treeId);
+    const store = new TreeStore(this.adapter, treeId, kind);
     const root = await store.createTree(content, title);
     this.trees.set(treeId, store);
     await this.persistIndex({
@@ -134,6 +135,7 @@ export class ForestStore {
 
     const json: TreeJSON = {
       version: 1,
+      kind: bundle.tree.kind ?? "markdown",
       rootNodeId: remap(bundle.tree.rootNodeId),
       nodes: remappedNodes,
       createdAt: bundle.tree.createdAt,

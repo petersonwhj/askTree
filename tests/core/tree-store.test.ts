@@ -201,4 +201,27 @@ describe("TreeStore", () => {
       expect(store.getReadingPosition(grandchild.id)).toBe(0);
     });
   });
+
+  describe("kind", () => {
+    it("defaults to markdown and serializes it", async () => {
+      await store.createTree("r", "Root");
+      expect(store.kind).toBe("markdown");
+      expect(store.serialize().kind).toBe("markdown");
+    });
+
+    it("carries a non-default kind through serialize and deserialize", async () => {
+      const docx = new TreeStore(adapter, "tree-9", "docx");
+      await docx.createTree("r", "Root");
+      const restored = await TreeStore.deserialize(docx.serialize(), adapter, "tree-9");
+      expect(restored.kind).toBe("docx");
+    });
+
+    it("treats an absent kind as markdown", async () => {
+      await store.createTree("r", "Root");
+      const json = store.serialize();
+      delete (json as { kind?: unknown }).kind;
+      const restored = await TreeStore.deserialize(json, adapter, "tree-9");
+      expect(restored.kind).toBe("markdown");
+    });
+  });
 });

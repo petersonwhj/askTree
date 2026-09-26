@@ -2,6 +2,7 @@ import { useRef, useCallback } from "react";
 import { useTree } from "../hooks/useTree";
 import { saveTextFile } from "../lib/save-file";
 import { sanitizeFilename } from "../lib/filename";
+import { openDocumentFile } from "../lib/open-document";
 
 interface Props { onSettings: () => void; onToggleSidebar: () => void; }
 
@@ -36,9 +37,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
 
   const handleLoadFile = useCallback(async (file: File) => {
     try {
-      const text = await file.text();
-      const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-      await createDocument(text, title || "Untitled");
+      await openDocumentFile(file, createDocument);
     } catch (e) {
       alert("Failed to load file: " + (e as Error).message);
     }
@@ -80,7 +79,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept=".md,.markdown,.txt"
+          accept=".md,.markdown,.txt,.docx"
           style={{ display: "none" }}
           onChange={handleFileSelect}
         />
