@@ -17,6 +17,8 @@ export async function askOllama(config: LLMConfig, options: AskOptions): Promise
       options.question;
   }
 
+  const images = options.images ?? [];
+
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -24,6 +26,7 @@ export async function askOllama(config: LLMConfig, options: AskOptions): Promise
       model: config.model,
       prompt,
       stream: false,
+      ...(images.length > 0 ? { images: images.map((img) => img.data) } : {}),
     }),
     signal: options.signal,
   });

@@ -86,6 +86,8 @@ export interface AskOptions {
   system?: string;
   /** Rendered user prompt — when supplied, clients use this instead of ad-hoc build */
   user?: string;
+  /** Images to send with the question (multimodal asks). */
+  images?: AskImage[];
 }
 
 export interface PromptConfig {
