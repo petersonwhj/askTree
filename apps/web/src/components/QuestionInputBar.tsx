@@ -166,6 +166,40 @@ export function QuestionInputBar({
     onClearContext?.();
   };
 
+  const tools = (
+    <div className="bar-tools">
+      <button
+        type="button"
+        className="bar-tool"
+        aria-label="Attach image"
+        title="附件"
+        onClick={() => imageInputRef.current?.click()}
+      >
+        <PaperclipIcon /> 附件
+      </button>
+      <button
+        type="button"
+        className="bar-tool"
+        aria-label="Clear context"
+        title="清空问题、附件与选中文字"
+        onClick={handleClear}
+      >
+        ✕ 清空
+      </button>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          void addFiles(Array.from(e.target.files ?? []));
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+
   return (
     <div className="question-input-bar">
       {contextHtml ? (
@@ -178,6 +212,7 @@ export function QuestionInputBar({
           <div className="context-badge" title={contextText || rawText || ""}>
             <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
           </div>
+          {tools}
         </div>
       ) : (
         <div className="free-ask-row">
@@ -202,6 +237,7 @@ export function QuestionInputBar({
               </button>
             </div>
           )}
+          {tools}
         </div>
       )}
 
@@ -290,38 +326,6 @@ export function QuestionInputBar({
           ))}
         </div>
       )}
-
-      <div className="bar-tools">
-        <button
-          type="button"
-          className="bar-tool"
-          aria-label="Attach image"
-          title="附件"
-          onClick={() => imageInputRef.current?.click()}
-        >
-          <PaperclipIcon /> 附件
-        </button>
-        <button
-          type="button"
-          className="bar-tool"
-          aria-label="Clear context"
-          title="清空问题、附件与选中文字"
-          onClick={handleClear}
-        >
-          ✕ 清空
-        </button>
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            void addFiles(Array.from(e.target.files ?? []));
-            e.target.value = "";
-          }}
-        />
-      </div>
 
       <div className="input-box">
         <textarea
