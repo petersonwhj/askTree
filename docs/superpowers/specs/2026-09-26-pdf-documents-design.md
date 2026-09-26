@@ -59,18 +59,20 @@ export and import.
 New `StorageAdapter` methods:
 
 ```ts
-readAsset(id: string): Promise<Blob | null>;
-writeAsset(id: string, blob: Blob): Promise<void>;
+readAsset(id: string): Promise<ArrayBuffer | null>;
+writeAsset(id: string, data: ArrayBuffer): Promise<void>;
 deleteAsset(id: string): Promise<void>;
 ```
 
+- Assets are `ArrayBuffer` (not `Blob`): it is what pdf.js consumes, what IndexedDB stores
+  natively, and it is constructible in tests (this environment's jsdom `Blob` has no
+  `arrayBuffer()`).
 - `IndexedDBStorageAdapter`: a new object store `assets`, created on upgrade. `DB_VERSION`
   goes `1 → 2`; adding an object store is non-destructive, existing data is untouched.
-  Blobs are stored raw (no base64 inflation).
-- `InMemoryStorageAdapter`: a `Map<string, Blob>`.
-- `TreeStore` gets `setAsset(id, blob)` used at import and a size/read accessor for the PDF
-  pane; `ForestStore.deleteTree` deletes the tree's asset; `TreeStore.removeNode` never
-  removes the root, so the asset is tied to the document as a whole.
+- `InMemoryStorageAdapter`: a `Map<string, ArrayBuffer>`.
+- `TreeStore` gets `setAsset(id, data)` used at import and a read accessor for the PDF pane;
+  `ForestStore.deleteTree` deletes the tree's asset; `TreeStore.removeNode` never removes the
+  root, so the asset is tied to the document as a whole.
 
 `ExportBundle` gains:
 
@@ -169,9 +171,9 @@ When the user sends from a PDF document:
 `openDocumentFile` and `createDocument` gain an optional asset:
 
 ```ts
-type OpenDocument = (content: string, title: string, kind?: DocumentKind, asset?: Blob) => Promise<void>;
-createDocument(content: string, title: string, kind?: DocumentKind, asset?: Blob): Promise<void>;
-ForestStore.createTree(content, title, kind = "markdown", asset?: Blob): Promise<Node>;
+type OpenDocument = (content: string, title: string, kind?: DocumentKind, asset?: ArrayBuffer) => Promise<void>;
+createDocument(content: string, title: string, kind?: DocumentKind, asset?: ArrayBuffer): Promise<void>;
+ForestStore.createTree(content, title, kind = "markdown", asset?: ArrayBuffer): Promise<Node>;
 ```
 
 For a `.pdf` file, `content` is `""` and `asset` is the file's bytes; `TreeStore` writes the
@@ -187,10 +189,8 @@ asset under a fresh id and records it as `assetId`. Markdown/docx calls pass no 
 
 ## Testing
 
-- **Unit (asset store):** `writeAsset`/`readAsset`/`deleteAsset` round-trip a Blob in both
-  adapters; the IndexedDB upgrade keeps existing data. *(Blob support in jsdom must be
-  verified; if `Blob`/`arrayBuffer` is unavailable, fall back to an `ArrayBuffer`-typed asset
-  and adjust the interface — report which was used.)*
+- **Unit (asset store):** `writeAsset`/`readAsset`/`deleteAsset` round-trip an `ArrayBuffer` in
+  both adapters; the IndexedDB upgrade keeps existing data.
 - **Unit (bundle):** `exportBundle`/`importBundle` round-trip a PDF document through the
   **JSON** path; asset ids are remapped on import; a second import does not collide.
 - **Unit (zip):** building and reading the zip round-trips `asktree.json` + `assets/<id>`;
@@ -221,7 +221,9 @@ asset under a fresh id and records it as `assetId`. Markdown/docx calls pass no 
   through. The page-image scale/JPEG settings above are the lever if this bites.
 - **IndexedDB upgrade.** Adding a store is safe, but the version bump must be tested against
   an existing v1 database.
-- **Blob availability in tests.** See Testing.
+- **Large assets in memory.** `readAsset` returns the whole `ArrayBuffer`; pdf.js needs the
+  bytes anyway, so this is inherent, but it is the reason export switches to zip above the
+  threshold.
 
 ## Future
 
