@@ -133,7 +133,12 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
             </div>
 
             {!isCollapsed && isActive && root && (
-              <div className="forest-tree">{renderNode(root, tree.id, 0)}</div>
+              <div className="forest-tree">
+                {root.children.map((edge) => {
+                  const child = store?.getNode(edge.targetNodeId);
+                  return child ? renderNode(child, tree.id, 0) : null;
+                })}
+              </div>
             )}
           </div>
         );

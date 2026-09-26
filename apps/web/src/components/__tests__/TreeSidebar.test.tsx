@@ -46,6 +46,12 @@ describe("TreeSidebar (forest)", () => {
     expect(screen.getByTestId("doc-row-beta").className).not.toContain("active");
   });
 
+  it("shows the document title once, without a duplicate root node", () => {
+    render(<TreeSidebar />);
+    // The row already represents the root; the subtree must start at its children.
+    expect(screen.getAllByText("Alpha")).toHaveLength(1);
+  });
+
   it("switches document when a row is clicked", () => {
     render(<TreeSidebar />);
     fireEvent.click(screen.getByTestId("doc-row-beta"));

@@ -1158,6 +1158,12 @@ describe("TreeSidebar (forest)", () => {
     expect(screen.getByTestId("doc-row-beta").className).not.toContain("active");
   });
 
+  it("shows the document title once, without a duplicate root node", () => {
+    render(<TreeSidebar />);
+    // The row already represents the root; the subtree must start at its children.
+    expect(screen.getAllByText("Alpha")).toHaveLength(1);
+  });
+
   it("switches document when a row is clicked", () => {
     render(<TreeSidebar />);
     fireEvent.click(screen.getByTestId("doc-row-beta"));
@@ -1351,7 +1357,12 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
             </div>
 
             {!isCollapsed && isActive && root && (
-              <div className="forest-tree">{renderNode(root, tree.id, 0)}</div>
+              <div className="forest-tree">
+                {root.children.map((edge) => {
+                  const child = store?.getNode(edge.targetNodeId);
+                  return child ? renderNode(child, tree.id, 0) : null;
+                })}
+              </div>
             )}
           </div>
         );
