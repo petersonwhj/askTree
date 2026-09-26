@@ -1,18 +1,22 @@
-import type { TreeJSON } from "./types";
+import type { TreeJSON, ForestIndex } from "./types";
 
 export interface StorageAdapter {
   readNodeContent(nodeId: string): Promise<string>;
   writeNodeContent(nodeId: string, content: string): Promise<void>;
   deleteNodeContent(nodeId: string): Promise<void>;
-  readTreeMeta(): Promise<TreeJSON | null>;
-  writeTreeMeta(json: TreeJSON): Promise<void>;
   listNodeIds(): Promise<string[]>;
+  readForestIndex(): Promise<ForestIndex | null>;
+  writeForestIndex(index: ForestIndex): Promise<void>;
+  readTreeMeta(treeId: string): Promise<TreeJSON | null>;
+  writeTreeMeta(treeId: string, json: TreeJSON): Promise<void>;
+  deleteTreeMeta(treeId: string): Promise<void>;
   clear(): Promise<void>;
 }
 
 export class InMemoryStorageAdapter implements StorageAdapter {
   private contents = new Map<string, string>();
-  private meta: TreeJSON | null = null;
+  private metas = new Map<string, TreeJSON>();
+  private forest: ForestIndex | null = null;
 
   async readNodeContent(nodeId: string): Promise<string> {
     const c = this.contents.get(nodeId);
@@ -28,20 +32,33 @@ export class InMemoryStorageAdapter implements StorageAdapter {
     this.contents.delete(nodeId);
   }
 
-  async readTreeMeta(): Promise<TreeJSON | null> {
-    return this.meta;
-  }
-
-  async writeTreeMeta(json: TreeJSON): Promise<void> {
-    this.meta = json;
-  }
-
   async listNodeIds(): Promise<string[]> {
     return Array.from(this.contents.keys());
   }
 
+  async readForestIndex(): Promise<ForestIndex | null> {
+    return this.forest ? { ...this.forest, trees: [...this.forest.trees] } : null;
+  }
+
+  async writeForestIndex(index: ForestIndex): Promise<void> {
+    this.forest = { ...index, trees: [...index.trees] };
+  }
+
+  async readTreeMeta(treeId: string): Promise<TreeJSON | null> {
+    return this.metas.get(treeId) ?? null;
+  }
+
+  async writeTreeMeta(treeId: string, json: TreeJSON): Promise<void> {
+    this.metas.set(treeId, json);
+  }
+
+  async deleteTreeMeta(treeId: string): Promise<void> {
+    this.metas.delete(treeId);
+  }
+
   async clear(): Promise<void> {
     this.contents.clear();
-    this.meta = null;
+    this.metas.clear();
+    this.forest = null;
   }
 }

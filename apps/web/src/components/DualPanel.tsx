@@ -89,7 +89,7 @@ function MarkdownActions({ content, title }: { content: string | null; title: st
 export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     store, llm, activePath, selectedText, setSelectedText,
-    addChildNode, updateStatus, promptConfig, createRootTree, navigateTo, focusNode, navigateUp,
+    addChildNode, updateStatus, promptConfig, createDocument, navigateTo, focusNode, navigateUp,
     showExplored, treeVersion,
   } = useTree();
 
@@ -111,7 +111,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [childContent, setChildContent] = useState<string | null>(null);
 
   useEffect(() => {
-    if (parentNode) {
+    if (parentNode && store) {
       store.getContent(parentNode.id).then(setParentContent).catch(() => setParentContent(""));
     } else {
       setParentContent(null);
@@ -119,7 +119,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }, [parentNode, store]);
 
   useEffect(() => {
-    if (currentNode && currentNode.id !== parentNode?.id) {
+    if (currentNode && currentNode.id !== parentNode?.id && store) {
       store.getContent(currentNode.id).then(setChildContent).catch(() => setChildContent(""));
     } else {
       setChildContent(null);
@@ -165,6 +165,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   // The passage in the left pane that the right (current) node was asked about.
   const parentHighlight = useMemo(() => {
     if (!currentNode || !parentNode || currentNode.id === parentNode.id) return null;
+    if (!store) return null;
     // Read from the store so the quote reflects the current edges (fresh after
     // navigation or deletion), not a stale activePath snapshot.
     const edges = store.getNode(parentNode.id)?.children ?? parentNode.children;
@@ -176,11 +177,11 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }, [parentNode, currentNode, store, treeVersion]);
 
   const parentExplored = useMemo(
-    () => (showExplored ? exploredSpans(store, parentNode) : []),
+    () => (showExplored && store ? exploredSpans(store, parentNode) : []),
     [showExplored, store, parentNode, treeVersion],
   );
   const childExplored = useMemo(
-    () => (showExplored ? exploredSpans(store, currentNode) : []),
+    () => (showExplored && store ? exploredSpans(store, currentNode) : []),
     [showExplored, store, currentNode, treeVersion],
   );
 
@@ -208,7 +209,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     const handleStart = async () => {
       const content = newArticleRef.current?.value || newContent;
       if (!content) return;
-      await createRootTree(content, newTitle || "Untitled");
+      await createDocument(content, newTitle || "Untitled");
       setNewContent("");
       setNewTitle("");
     };
@@ -217,7 +218,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
       try {
         const text = await file.text();
         const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-        await createRootTree(text, title || "Untitled");
+        await createDocument(text, title || "Untitled");
       } catch (err) {
         setError("Failed to read file: " + (err as Error).message);
       }
@@ -235,7 +236,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
               try {
                 const text = await file.text();
                 const title = file.name.replace(/\.(md|markdown|txt)$/i, "");
-                await createRootTree(text, title);
+                await createDocument(text, title);
               } catch (err) {
                 setError("Failed to read file: " + (err as Error).message);
               }
@@ -292,8 +293,12 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     );
   }
 
+  if (!store) return null;
+
   const handleSendQuestion = async (question: string) => {
     setError(null);
+    if (!store) return;
+    const activeStore = store;
     const questionedNodeId =
       selectedText?.nodeId ||
       (freeAskTarget === "left" ? parentNode.id : currentNode.id);
@@ -319,7 +324,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
     let childNode: Node;
     try {
-      childNode = await store.addChild(questionedNodeId, {
+      childNode = await activeStore.addChild(questionedNodeId, {
         selectedText: askedText,
         startPos: askedStart,
         endPos: askedEnd,
@@ -339,7 +344,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         const slices = await collectContext(
           questionedNodeId,
           askedText ? { start: askedStart, end: askedEnd, text: askedText } : null,
-          store,
+          activeStore,
           promptConfig,
         );
         const rendered = renderPrompt(slices, question, promptConfig.template);
@@ -349,11 +354,11 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           system: rendered.system,
           user: rendered.user,
         });
-        await store.updateContent(childId, answer);
+        await activeStore.updateContent(childId, answer);
         setChildContent(answer);
       } catch (e) {
         const errMsg = `**Error:** ${(e as Error).message}\n\n> ${question}`;
-        await store.updateContent(childId, errMsg);
+        await activeStore.updateContent(childId, errMsg);
         setChildContent(errMsg);
         setError((e as Error).message);
       } finally {
@@ -375,6 +380,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     if (!llm.getConfig?.()) {
       throw new Error("LLM not configured. Open Settings to choose a provider.");
     }
+    if (!store) throw new Error("No active document");
     const slices = await collectContext(
       suggestionTargetId,
       suggestionSelection,

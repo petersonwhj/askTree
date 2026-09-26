@@ -1,10 +1,11 @@
-export type { Node, Edge, TreeJSON, ExportBundle, LLMConfig, ContextSlice, AskOptions, PromptConfig } from "./types";
+export type { Node, Edge, TreeJSON, ExportBundle, LLMConfig, ContextSlice, AskOptions, PromptConfig, ForestIndex, TreeSummary } from "./types";
 export { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE } from "./types";
 
 export type { StorageAdapter } from "./storage-adapter";
 export { InMemoryStorageAdapter } from "./storage-adapter";
 
 export { TreeStore } from "./tree-store";
+export { ForestStore } from "./forest-store";
 
 export { collectContext, renderPrompt, parseSuggestedQuestions } from "./prompt";
 export type { SelectionInfo } from "./prompt";

@@ -34,7 +34,7 @@ describe("DualPanel prompt debug trigger", () => {
       addChildNode: vi.fn(),
       updateStatus: vi.fn(),
       promptConfig: DEFAULT_PROMPT_CONFIG,
-      createRootTree: vi.fn(),
+      createDocument: vi.fn(),
       navigateTo: vi.fn(),
       focusNode: vi.fn(),
       navigateUp: vi.fn(),
@@ -119,7 +119,7 @@ describe("DualPanel panel actions and free-ask target", () => {
       addChildNode: vi.fn(),
       updateStatus: vi.fn(),
       promptConfig: DEFAULT_PROMPT_CONFIG,
-      createRootTree: vi.fn(),
+      createDocument: vi.fn(),
       navigateTo: vi.fn(),
       focusNode: vi.fn(),
       navigateUp: vi.fn(),
@@ -193,8 +193,8 @@ describe("DualPanel panel actions and free-ask target", () => {
   });
 
   it("starts a tree from a markdown file opened in the empty state", async () => {
-    const createRootTree = vi.fn().mockResolvedValue(undefined);
-    mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null, createRootTree };
+    const createDocument = vi.fn().mockResolvedValue(undefined);
+    mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null, createDocument };
     render(<DualPanel />);
 
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
@@ -209,7 +209,7 @@ describe("DualPanel panel actions and free-ask target", () => {
     Object.defineProperty(file, "text", { value: () => Promise.resolve("# Hi\n\nbody") });
     fireEvent.change(input, { target: { files: [file] } });
 
-    await waitFor(() => expect(createRootTree).toHaveBeenCalledWith("# Hi\n\nbody", "My Article"));
+    await waitFor(() => expect(createDocument).toHaveBeenCalledWith("# Hi\n\nbody", "My Article"));
   });
 
   it("refreshes explored marks immediately after an off-path deletion", async () => {

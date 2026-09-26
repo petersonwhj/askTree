@@ -30,8 +30,8 @@ describe("InMemoryStorageAdapter", () => {
   it("should read/write meta", async () => {
     const a = new InMemoryStorageAdapter();
     const json: TreeJSON = { version: 1, rootNodeId: "r", nodes: {}, createdAt: 0, updatedAt: 0 };
-    await a.writeTreeMeta(json);
-    expect((await a.readTreeMeta())?.rootNodeId).toBe("r");
+    await a.writeTreeMeta("t1", json);
+    expect((await a.readTreeMeta("t1"))?.rootNodeId).toBe("r");
   });
 
   it("should delete content", async () => {
@@ -48,6 +48,6 @@ describe("InMemoryStorageAdapter", () => {
     expect(await a.listNodeIds()).toHaveLength(2);
     await a.clear();
     expect(await a.listNodeIds()).toHaveLength(0);
-    expect(await a.readTreeMeta()).toBeNull();
+    expect(await a.readTreeMeta("t1")).toBeNull();
   });
 });

@@ -28,6 +28,12 @@ export function PromptDebugModal({
   useEffect(() => {
     (async () => {
       try {
+        if (!store) {
+          setSystem("No active document");
+          setUser("");
+          setLoading(false);
+          return;
+        }
         if (mode === "suggestion") {
           // "Help me ask" is generated from the current ask context (selection
           // or the free-ask target page), not from a generated answer.
