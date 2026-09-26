@@ -105,6 +105,30 @@ export async function docxToMarkdown(file: File): Promise<string>;
 - An empty result (no readable text) throws
   `No readable text found in "<filename>".`
 
+### Why not a direct docx→markdown library
+
+Investigated (package metadata, 2026-09-26): there is **no maintained, browser-capable
+library that converts `.docx` straight to Markdown**. mammoth.js exposes only
+`convertToHtml` and `extractRawText` — a Markdown writer exists only in the Python
+mammoth, which is a common source of confusion. The packages that advertise
+docx→markdown are either command-line tools or thin wrappers:
+
+- `docx-to-markdown` — a CLI whose dependencies do not include mammoth or turndown; it
+  shells out to an external converter. Unmaintained since 2022.
+- `docx2md` — a CLI whose dependencies are exactly `mammoth` + `turndown`.
+- `word-to-markdown` — a CLI built on `mammoth` + `@joplin/turndown` plus Node-only
+  dependencies (`node-html-parser`, `prettier`, `jszip`), with no browser field.
+
+The two steps are therefore not a detour but the standard JS pipeline: mammoth parses
+OOXML into semantic HTML, and turndown serialises HTML into Markdown. Both are mature and
+testable on their own; hand-writing OOXML parsing is explicitly rejected.
+
+`turndown-plugin-gfm` is used for tables, strikethrough and task lists. Its upstream
+release is from 2022 but its transformations are tiny and stable. The Joplin forks
+(`@joplin/turndown`, `@joplin/turndown-plugin-gfm`), which are actively updated and used
+in production by the Joplin web clipper, were considered and are the documented fallback if
+the upstream pair misbehaves.
+
 ## UI
 
 - Each `.doc-row` in the sidebar gets `data-kind={kind}`.
