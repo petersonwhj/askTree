@@ -25,6 +25,9 @@ Mark a page `resolved` when it clicks. The sidebar becomes a map of your own lea
 
 ## Features
 
+**Keep many documents at once**
+- The sidebar is a forest: one row per document, each expandable. Switch, rename, export or delete a document; every answer and reading position stays with its own document.
+
 **Ask against the text**
 - Select any passage → click the floating button → the LLM answers it as a new child page.
 - Answers are full Markdown pages themselves — select inside them to go deeper.
