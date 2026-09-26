@@ -431,3 +431,17 @@ body {
   margin-left: 8px; background: none; border: none; color: #f85149;
   cursor: pointer; font-size: 12px;
 }
+
+.forest-header { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+.forest-header button { background: none; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; cursor: pointer; width: 26px; height: 26px; }
+.doc-row { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #c9d1d9; }
+.doc-row:hover { background: #21262d; }
+.doc-row.active { background: #1f6feb22; color: #ffffff; }
+.doc-chevron { background: none; border: none; color: inherit; cursor: pointer; width: 16px; padding: 0; }
+.doc-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-actions { display: none; gap: 2px; }
+.doc-row:hover .doc-actions { display: inline-flex; }
+.doc-actions button { background: none; border: none; color: #8b949e; cursor: pointer; padding: 0 2px; }
+.doc-actions button:hover { color: #c9d1d9; }
+.doc-rename-input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 13px; padding: 1px 4px; }
+
