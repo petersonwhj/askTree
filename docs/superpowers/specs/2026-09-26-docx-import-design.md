@@ -138,9 +138,12 @@ the upstream pair misbehaves.
 ## Testing
 
 - **Conversion (unit):** `docxToMarkdown` against a small committed fixture
-  `apps/web/src/lib/__tests__/fixtures/sample.docx`, asserting an ATX heading, bold text,
-  a GFM table row and an embedded `![](data:image` are present. The fixture is generated
-  once by a script that writes a minimal valid OOXML zip.
+  `apps/web/src/lib/__tests__/fixtures/sample.docx` (generated once by a script that writes
+  a minimal valid OOXML zip), asserting bold text and a GFM table row — the parts that
+  exercise our turndown/GFM wiring. Heading conversion is mammoth's default and is not
+  asserted by us; embedded images likewise rely on mammoth's documented `data:` URI output.
+  If jsdom cannot execute mammoth or `File.arrayBuffer`, this assertion moves to the
+  Playwright test (see Risks).
 - **Dispatch (unit):** `openDocumentFile` creates a `docx` document for `.docx` (with the
   converter mocked), a `markdown` document for `.md`, and throws a readable error for
   `.doc` and unknown extensions.
