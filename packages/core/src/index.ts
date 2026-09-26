@@ -5,6 +5,7 @@ export type { StorageAdapter } from "./storage-adapter";
 export { InMemoryStorageAdapter } from "./storage-adapter";
 
 export { TreeStore } from "./tree-store";
+export { ForestStore } from "./forest-store";
 
 export { collectContext, renderPrompt, parseSuggestedQuestions } from "./prompt";
 export type { SelectionInfo } from "./prompt";
