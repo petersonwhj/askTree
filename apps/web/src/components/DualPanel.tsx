@@ -186,12 +186,14 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     [showExplored, store, currentNode, treeVersion],
   );
 
-  const currentEdgeImages = useMemo(() => {
-    if (!currentNode || !parentNode || currentNode.id === parentNode.id) return [];
-    if (!store) return [];
-    const edges = store.getNode(parentNode.id)?.children ?? parentNode.children;
-    return edges.find((e) => e.targetNodeId === currentNode.id)?.images ?? [];
-  }, [parentNode, currentNode, store, treeVersion]);
+  const edgeImagesFor = useCallback((node: Node | undefined) => {
+    if (!node || !store || !node.parentId) return [];
+    const edges = store.getNode(node.parentId)?.children ?? [];
+    return edges.find((e) => e.targetNodeId === node.id)?.images ?? [];
+  }, [store, treeVersion]);
+
+  const parentEdgeImages = useMemo(() => edgeImagesFor(parentNode), [edgeImagesFor, parentNode]);
+  const currentEdgeImages = useMemo(() => edgeImagesFor(currentNode), [edgeImagesFor, currentNode]);
 
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -446,6 +448,18 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             </select>
           </div>
         </div>
+        {parentEdgeImages.length > 0 && (
+          <div className="node-images">
+            {parentEdgeImages.map((img, i) => (
+              <img
+                key={i}
+                className="node-image"
+                src={`data:${img.mediaType};base64,${img.data}`}
+                alt="attached"
+              />
+            ))}
+          </div>
+        )}
         {parentContent !== null && (
           <MarkdownPane
             content={parentContent}
