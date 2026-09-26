@@ -878,6 +878,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 export const PDF_RENDER_SCALE = 1.5;
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.8;
+const CROP_MAX_ZOOM = 3;
+const CROP_MAX_EDGE = 2000;
 
 export interface PdfPaneHandle {
   renderContextImages(): Promise<{ images: AskImage[]; pages: number[] }>;
@@ -992,13 +994,32 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
 
   const onMouseUp = () => { dragRef.current = null; };
 
-  const confirmCrop = () => {
+  const confirmCrop = async () => {
     const canvas = canvasRef.current;
-    if (!canvas || !rect || rect.w < 8 || rect.h < 8) return;
+    const doc = docRef.current;
+    const current = rect;
+    if (!canvas || !doc || !current || current.w < 8 || current.h < 8) return;
+
+    // Re-render just this region from the PDF at a higher scale so the crop is crisp.
+    // `current` is in on-screen canvas pixels; k scales them to the output resolution.
+    const k = Math.max(
+      1,
+      Math.min(CROP_MAX_ZOOM, CROP_MAX_EDGE / Math.max(current.w, current.h)),
+    );
+    const pdfPage = await doc.getPage(page);
+    const base = pdfPage.getViewport({ scale: 1 });
+    const viewport = pdfPage.getViewport({ scale: scaleFor(base) * k });
+
     const out = document.createElement("canvas");
-    out.width = rect.w;
-    out.height = rect.h;
-    out.getContext("2d")!.drawImage(canvas, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+    out.width = Math.round(current.w * k);
+    out.height = Math.round(current.h * k);
+    await pdfPage.render({
+      canvasContext: out.getContext("2d")!,
+      viewport,
+      // Translate the full-page high-res render so the region starts at (0, 0).
+      transform: [1, 0, 0, 1, -current.x * k, -current.y * k],
+    }).promise;
+
     const dataUrl = out.toDataURL("image/png");
     onCrop?.({ mediaType: "image/png", data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
     setRect(null);
@@ -1020,7 +1041,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
               type="button"
               className="pdf-crop-ask"
               style={{ left: rect.x, top: rect.y + rect.h + 6 }}
-              onClick={confirmCrop}
+              onClick={() => void confirmCrop()}
             >
               Ask about this
             </button>

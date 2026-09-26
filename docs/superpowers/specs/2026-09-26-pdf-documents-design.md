@@ -121,10 +121,13 @@ assets?: Record<string, { mediaType: string; data?: string; file?: string }>;
 
 - Dragging on the page draws a rectangle; on mouse-up, a floating **"Ask about this"** button
   appears over the region (mirroring the text-selection flow).
-- Clicking it produces the **crop**: the selected sub-rectangle of the page canvas is drawn
-  to an offscreen canvas and encoded as **PNG** (crisp for text/formulas). The crop becomes
-  the **selection context**, shown in the ask bar's context row as a thumbnail labelled
-  “About: this capture”, not as an ordinary attachment.
+- Clicking it produces the **crop**: the selected rectangle (in on-screen canvas pixels) is
+  mapped back to the PDF page and **re-rendered from pdf.js at a higher scale** (via the
+  render `transform` offset), so the crop is crisper than the on-screen render. Output is
+  **PNG**. The re-render is capped (max 3× the screen scale, longest output edge 2000 px) so a
+  large selection cannot allocate a huge canvas. The crop becomes the **selection context**,
+  shown in the ask bar's context row as a thumbnail labelled “About: this capture”, not as an
+  ordinary attachment.
 - The crop lives in `DualPanel` state (`selectedImage`), set by `PdfPane` via an `onCrop`
   callback; the ask bar's **清空 / Clear** also clears it.
 - A minimum drag size is required (ignore accidental tiny drags).
