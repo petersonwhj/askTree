@@ -1,4 +1,4 @@
-import type { Node, Edge, TreeJSON, ExportBundle } from "./types";
+import type { Node, Edge, TreeJSON, ExportBundle, DocumentKind } from "./types";
 import type { StorageAdapter } from "./storage-adapter";
 
 export class TreeStore {
@@ -9,6 +9,7 @@ export class TreeStore {
   constructor(
     private adapter: StorageAdapter,
     readonly treeId: string = crypto.randomUUID(),
+    readonly kind: DocumentKind = "markdown",
   ) {}
 
   async createTree(rootContent: string, title: string): Promise<Node> {
@@ -178,6 +179,7 @@ export class TreeStore {
     const rootNode = this.nodes.get(this.rootNodeId);
     return {
       version: 1,
+      kind: this.kind,
       rootNodeId: this.rootNodeId,
       nodes: nodesObj,
       createdAt: rootNode?.createdAt ?? Date.now(),
@@ -193,7 +195,7 @@ export class TreeStore {
     adapter: StorageAdapter,
     treeId: string = crypto.randomUUID(),
   ): Promise<TreeStore> {
-    const store = new TreeStore(adapter, treeId);
+    const store = new TreeStore(adapter, treeId, json.kind ?? "markdown");
     for (const [id, node] of Object.entries(json.nodes)) {
       store.nodes.set(id, { ...node });
     }
