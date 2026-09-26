@@ -152,3 +152,31 @@ describe("ForestStore import / export", () => {
     expect(forest.listTrees()).toHaveLength(1);
   });
 });
+
+describe("ForestStore kind", () => {
+  it("defaults new documents to markdown", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    await forest.createTree("a", "Alpha");
+    expect(forest.listTrees()[0].kind).toBe("markdown");
+  });
+
+  it("records a docx document", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    await forest.createTree("a", "Alpha", "docx");
+    expect(forest.listTrees()[0].kind).toBe("docx");
+    expect(forest.getActiveTree()!.kind).toBe("docx");
+  });
+
+  it("preserves kind through export and import", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    await forest.createTree("a", "Alpha", "docx");
+    const bundle = await forest.exportTree(forest.listTrees()[0].id);
+    expect(bundle.tree.kind).toBe("docx");
+
+    const newId = await forest.importBundle(bundle);
+    expect(forest.listTrees().find((t) => t.id === newId)?.kind).toBe("docx");
+  });
+});

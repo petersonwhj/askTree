@@ -48,6 +48,7 @@ export interface TreeSummary {
   id: string;
   title: string;
   updatedAt: number;
+  kind: DocumentKind;
 }
 
 export interface LLMConfig {
