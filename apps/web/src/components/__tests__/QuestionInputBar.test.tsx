@@ -188,4 +188,39 @@ describe("QuestionInputBar images", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove image/i }));
     await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(0));
   });
+
+  it("clears the question, the images and the selection context", async () => {
+    const onClearContext = vi.fn();
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText="selected text" onClearContext={onClearContext} />,
+    );
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    const textarea = screen.getByPlaceholderText(/about:/i) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "a question" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /clear context/i }));
+
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(0));
+    expect((screen.getByPlaceholderText(/about:/i) as HTMLTextAreaElement).value).toBe("");
+    expect(onClearContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a full-size preview when a thumbnail is clicked", async () => {
+    const { container } = render(
+      <QuestionInputBar {...baseProps} contextText={null} onSend={vi.fn()} />,
+    );
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [pngFile()] } });
+    await waitFor(() => expect(container.querySelectorAll(".ask-image").length).toBe(1));
+
+    fireEvent.click(container.querySelector(".ask-image img")!);
+    await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: /close preview/i }));
+    await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeNull());
+  });
 });

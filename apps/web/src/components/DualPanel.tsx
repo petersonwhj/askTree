@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
+import { ImageLightbox } from "./ImageLightbox";
 import { QuestionInputBar, type AskTarget } from "./QuestionInputBar";
 import { PromptDebugModal } from "./PromptDebugModal";
 import { saveTextFile } from "../lib/save-file";
@@ -95,6 +96,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [splitRatio, setSplitRatio] = useState(50);
   const newArticleRef = useRef<HTMLTextAreaElement>(null);
@@ -450,14 +452,19 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         </div>
         {parentEdgeImages.length > 0 && (
           <div className="node-images">
-            {parentEdgeImages.map((img, i) => (
-              <img
-                key={i}
-                className="node-image"
-                src={`data:${img.mediaType};base64,${img.data}`}
-                alt="attached"
-              />
-            ))}
+            {parentEdgeImages.map((img, i) => {
+              const src = `data:${img.mediaType};base64,${img.data}`;
+              return (
+                <img
+                  key={i}
+                  className="node-image"
+                  src={src}
+                  alt="attached"
+                  title="Click to preview"
+                  onClick={() => setPreviewImage(src)}
+                />
+              );
+            })}
           </div>
         )}
         {parentContent !== null && (
@@ -512,14 +519,19 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             </div>
             {currentEdgeImages.length > 0 && (
               <div className="node-images">
-                {currentEdgeImages.map((img, i) => (
-                  <img
-                    key={i}
-                    className="node-image"
-                    src={`data:${img.mediaType};base64,${img.data}`}
-                    alt="attached"
-                  />
-                ))}
+                {currentEdgeImages.map((img, i) => {
+                  const src = `data:${img.mediaType};base64,${img.data}`;
+                  return (
+                    <img
+                      key={i}
+                      className="node-image"
+                      src={src}
+                      alt="attached"
+                      title="Click to preview"
+                      onClick={() => setPreviewImage(src)}
+                    />
+                  );
+                })}
               </div>
             )}
             <MarkdownPane
@@ -556,6 +568,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onRequestSuggestions={requestSuggestions}
           onOpenSettings={onOpenSettings}
           onDebugSuggestions={() => setDebugSuggestion(true)}
+          onClearContext={() => setSelectedText(null)}
         />
       </div>
     </div>
@@ -569,6 +582,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         onClose={() => setDebugSuggestion(false)}
       />
     )}
+    {previewImage && <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />}
     </>
   );
 }

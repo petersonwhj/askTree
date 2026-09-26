@@ -2,13 +2,30 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { AskImage } from "@asktree/core";
 import { renderMarkdown } from "../lib/markdown";
 import { fileToAskImage } from "../lib/image";
+import { ImageLightbox } from "./ImageLightbox";
 
 export type AskTarget = "left" | "right";
+
+/** Inline paperclip icon (the 📎 emoji renders inconsistently across fonts). */
+function PaperclipIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 interface Props {
   contextText: string | null;
   rawText?: string | null;  // raw markdown slice for proper math rendering
   onSend: (question: string, images: AskImage[]) => void;
+  onClearContext?: () => void;
   isLoading: boolean;
   freeAskTarget?: "left" | "right";
   onFreeAskTargetChange?: (target: "left" | "right") => void;
@@ -30,6 +47,7 @@ export function QuestionInputBar({
   contextText,
   rawText,
   onSend,
+  onClearContext,
   isLoading,
   freeAskTarget = "right",
   onFreeAskTargetChange,
@@ -43,6 +61,7 @@ export function QuestionInputBar({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [images, setImages] = useState<AskImage[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   const addFiles = async (files: File[]) => {
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
@@ -136,6 +155,15 @@ export function QuestionInputBar({
     setShowSuggest(false);
     onSend(text, images);
     setImages([]);
+  };
+
+  const handleClear = () => {
+    setQuestion("");
+    setImages([]);
+    setShowSuggest(false);
+    setSuggestions([]);
+    setSuggestError(null);
+    onClearContext?.();
   };
 
   return (
@@ -244,7 +272,12 @@ export function QuestionInputBar({
         <div className="ask-images">
           {images.map((img, i) => (
             <div className="ask-image" key={i}>
-              <img src={`data:${img.mediaType};base64,${img.data}`} alt="attached" />
+              <img
+                src={`data:${img.mediaType};base64,${img.data}`}
+                alt="attached"
+                title="Click to preview"
+                onClick={() => setPreview(`data:${img.mediaType};base64,${img.data}`)}
+              />
               <button
                 type="button"
                 aria-label="Remove image"
@@ -257,6 +290,38 @@ export function QuestionInputBar({
           ))}
         </div>
       )}
+
+      <div className="bar-tools">
+        <button
+          type="button"
+          className="bar-tool"
+          aria-label="Attach image"
+          title="附件"
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <PaperclipIcon /> 附件
+        </button>
+        <button
+          type="button"
+          className="bar-tool"
+          aria-label="Clear context"
+          title="清空问题、附件与选中文字"
+          onClick={handleClear}
+        >
+          ✕ 清空
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            void addFiles(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
+      </div>
 
       <div className="input-box">
         <textarea
@@ -275,26 +340,6 @@ export function QuestionInputBar({
           rows={2}
         />
         <div className="input-toolbar">
-          <button
-            type="button"
-            className="assist-btn"
-            aria-label="Attach image"
-            title="Attach image"
-            onClick={() => imageInputRef.current?.click()}
-          >
-            📎
-          </button>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: "none" }}
-            onChange={(e) => {
-              void addFiles(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
           <button
             type="button"
             className={`assist-btn${showSuggest ? " active" : ""}`}
@@ -316,6 +361,8 @@ export function QuestionInputBar({
           </button>
         </div>
       </div>
+
+      {preview && <ImageLightbox src={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
