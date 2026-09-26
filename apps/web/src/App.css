@@ -445,3 +445,9 @@ body {
 .doc-actions button:hover { color: #c9d1d9; }
 .doc-rename-input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 13px; padding: 1px 4px; }
 
+.doc-kind {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #8b949e; border: 1px solid #30363d; border-radius: 4px;
+  padding: 0 4px; margin-left: 4px;
+}
+

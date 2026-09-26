@@ -97,6 +97,7 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
           <div key={tree.id} className="forest-doc">
             <div
               data-testid={`doc-row-${tree.id}`}
+              data-kind={tree.kind}
               className={`doc-row ${isActive ? "active" : ""}`}
               onClick={() => setActiveTree(tree.id)}
             >
@@ -124,6 +125,8 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
               ) : (
                 <span className="doc-title" title={tree.title}>{tree.title}</span>
               )}
+
+              {tree.kind !== "markdown" && <span className="doc-kind">{tree.kind}</span>}
 
               <span className="doc-actions">
                 <button aria-label={`Rename ${tree.title}`} title="Rename" onClick={(e) => { e.stopPropagation(); startRename(tree.id, tree.title); }}>✎</button>
