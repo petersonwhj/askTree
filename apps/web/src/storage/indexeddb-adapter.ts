@@ -1,8 +1,9 @@
-import type { StorageAdapter, TreeJSON } from "@asktree/core";
+import type { StorageAdapter, TreeJSON, ForestIndex } from "@asktree/core";
 
 const DB_NAME = "asktree";
 const DB_VERSION = 1;
-const META_KEY = "tree_meta";
+const FOREST_KEY = "forest_meta";
+const TREE_PREFIX = "tree:";
 const CONTENT_STORE = "node_contents";
 const META_STORE = "meta";
 
@@ -67,21 +68,51 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
     });
   }
 
-  async readTreeMeta(): Promise<TreeJSON | null> {
+  async readForestIndex(): Promise<ForestIndex | null> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(META_STORE, "readonly");
-      const req = tx.objectStore(META_STORE).get(META_KEY);
+      const req = tx.objectStore(META_STORE).get(FOREST_KEY);
       req.onsuccess = () => resolve(req.result ?? null);
       req.onerror = () => reject(req.error);
     });
   }
 
-  async writeTreeMeta(json: TreeJSON): Promise<void> {
+  async writeForestIndex(index: ForestIndex): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(META_STORE, "readwrite");
-      tx.objectStore(META_STORE).put(json, META_KEY);
+      tx.objectStore(META_STORE).put(index, FOREST_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async readTreeMeta(treeId: string): Promise<TreeJSON | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META_STORE, "readonly");
+      const req = tx.objectStore(META_STORE).get(TREE_PREFIX + treeId);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async writeTreeMeta(treeId: string, json: TreeJSON): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META_STORE, "readwrite");
+      tx.objectStore(META_STORE).put(json, TREE_PREFIX + treeId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async deleteTreeMeta(treeId: string): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META_STORE, "readwrite");
+      tx.objectStore(META_STORE).delete(TREE_PREFIX + treeId);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

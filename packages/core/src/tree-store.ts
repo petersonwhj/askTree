@@ -6,7 +6,10 @@ export class TreeStore {
   private nodes: Map<string, Node> = new Map();
   private readingPositions: Map<string, number> = new Map();
 
-  constructor(private adapter: StorageAdapter) {}
+  constructor(
+    private adapter: StorageAdapter,
+    readonly treeId: string = crypto.randomUUID(),
+  ) {}
 
   async createTree(rootContent: string, title: string): Promise<Node> {
     if (this.rootNodeId !== null) throw new Error("Tree already exists");
@@ -38,10 +41,11 @@ export class TreeStore {
     return { ...this.nodes.get(this.rootNodeId)! };
   }
 
-  async reset(): Promise<void> {
-    await this.adapter.clear();
-    this.nodes.clear();
-    this.rootNodeId = null;
+  async renameRoot(title: string): Promise<void> {
+    if (!this.rootNodeId) throw new Error("No tree exists");
+    const root = this.nodes.get(this.rootNodeId)!;
+    root.title = title;
+    await this.persist();
   }
 
   getAllNodes(): Node[] {
@@ -184,8 +188,12 @@ export class TreeStore {
     };
   }
 
-  static async deserialize(json: TreeJSON, adapter: StorageAdapter): Promise<TreeStore> {
-    const store = new TreeStore(adapter);
+  static async deserialize(
+    json: TreeJSON,
+    adapter: StorageAdapter,
+    treeId: string = crypto.randomUUID(),
+  ): Promise<TreeStore> {
+    const store = new TreeStore(adapter, treeId);
     for (const [id, node] of Object.entries(json.nodes)) {
       store.nodes.set(id, { ...node });
     }
@@ -211,15 +219,7 @@ export class TreeStore {
     return { version: 1, tree, contents };
   }
 
-  static async importBundle(bundle: ExportBundle, adapter: StorageAdapter): Promise<TreeStore> {
-    const store = await TreeStore.deserialize(bundle.tree, adapter);
-    for (const [id, content] of Object.entries(bundle.contents)) {
-      await adapter.writeNodeContent(id, content);
-    }
-    return store;
-  }
-
   private async persist(): Promise<void> {
-    await this.adapter.writeTreeMeta(this.serialize());
+    await this.adapter.writeTreeMeta(this.treeId, this.serialize());
   }
 }

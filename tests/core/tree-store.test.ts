@@ -7,7 +7,7 @@ describe("TreeStore", () => {
 
   beforeEach(() => {
     adapter = new InMemoryStorageAdapter();
-    store = new TreeStore(adapter);
+    store = new TreeStore(adapter, "tree-1");
   });
 
   describe("createTree", () => {
@@ -126,9 +126,27 @@ describe("TreeStore", () => {
       const child = await store.addChild(root.id, { selectedText: "x", startPos: 0, endPos: 1, question: "q?" }, "child");
       const json = store.serialize();
       const adapter2 = new InMemoryStorageAdapter();
-      const store2 = await TreeStore.deserialize(json, adapter2);
+      const store2 = await TreeStore.deserialize(json, adapter2, "tree-2");
       expect(store2.getRoot().title).toBe("Root");
       expect(store2.getNode(child.id)!.title).toBe("q?");
+      expect(store2.treeId).toBe("tree-2");
+    });
+  });
+
+  describe("persistence key", () => {
+    it("persists under its own tree id", async () => {
+      await store.createTree("r", "Root");
+      expect((await adapter.readTreeMeta("tree-1"))?.rootNodeId).toBe(store.getRoot().id);
+      expect(await adapter.readTreeMeta("other")).toBeNull();
+    });
+  });
+
+  describe("renameRoot", () => {
+    it("renames the document title and persists it", async () => {
+      await store.createTree("r", "Old");
+      await store.renameRoot("New");
+      expect(store.getRoot().title).toBe("New");
+      expect((await adapter.readTreeMeta("tree-1"))!.nodes[store.getRoot().id].title).toBe("New");
     });
   });
 
@@ -181,22 +199,6 @@ describe("TreeStore", () => {
 
       expect(store.getReadingPosition(child.id)).toBe(0);
       expect(store.getReadingPosition(grandchild.id)).toBe(0);
-    });
-  });
-
-  describe("export / import", () => {
-    it("should export and import a bundle", async () => {
-      const root = await store.createTree("root md", "Root");
-      const child = await store.addChild(root.id, { selectedText: "x", startPos: 0, endPos: 1, question: "q?" }, "child md");
-      const bundle = await store.exportBundle();
-      expect(bundle.version).toBe(1);
-      expect(bundle.contents[root.id]).toBe("root md");
-
-      const adapter2 = new InMemoryStorageAdapter();
-      const store2 = await TreeStore.importBundle(bundle, adapter2);
-      expect(store2.getRoot().title).toBe("Root");
-      expect(store2.getAllNodes()).toHaveLength(2);
-      expect(await store2.getContent(child.id)).toBe("child md");
     });
   });
 });

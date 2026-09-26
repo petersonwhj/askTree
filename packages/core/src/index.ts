@@ -1,4 +1,4 @@
-export type { Node, Edge, TreeJSON, ExportBundle, LLMConfig, ContextSlice, AskOptions, PromptConfig } from "./types";
+export type { Node, Edge, TreeJSON, ExportBundle, LLMConfig, ContextSlice, AskOptions, PromptConfig, ForestIndex, TreeSummary } from "./types";
 export { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE } from "./types";
 
 export type { StorageAdapter } from "./storage-adapter";

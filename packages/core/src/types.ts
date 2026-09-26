@@ -34,6 +34,18 @@ export interface ExportBundle {
   contents: Record<string, string>;
 }
 
+export interface ForestIndex {
+  version: 1;
+  activeTreeId: string | null;
+  trees: string[];
+}
+
+export interface TreeSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
+}
+
 export interface LLMConfig {
   endpoint: string;
   apiKey?: string;
