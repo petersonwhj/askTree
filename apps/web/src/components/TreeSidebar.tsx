@@ -3,9 +3,9 @@ import { useTree } from "../hooks/useTree";
 import type { Node } from "@asktree/core";
 
 export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
-  const { store, activePath, focusNode, resetTree, removeNode } = useTree();
+  const { store, activePath, focusNode, removeNode, deleteDocument } = useTree();
   const currentId = activePath[activePath.length - 1]?.id;
-  const root = (() => { try { return store.getRoot(); } catch { return null; } })();
+  const root = (() => { try { return store ? store.getRoot() : null; } catch { return null; } })();
 
   const handleDelete = useCallback((node: Node, e: React.MouseEvent) => {
     e.preventDefault();
@@ -17,11 +17,11 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
     if (!window.confirm(msg)) return;
 
     if (isRoot) {
-      resetTree();
+      void deleteDocument(node.id);
     } else {
       removeNode(node.id);
     }
-  }, [root, resetTree, removeNode]);
+  }, [root, deleteDocument, removeNode]);
 
   const renderNode = (node: Node, depth: number): React.ReactNode => {
     const isActive = node.id === currentId;
@@ -39,7 +39,7 @@ export function TreeSidebar({ style }: { style?: React.CSSProperties }) {
           <span title={node.title}>{node.title}</span>
         </div>
         {node.children.map((edge) => {
-          const child = store.getNode(edge.targetNodeId);
+          const child = store?.getNode(edge.targetNodeId);
           return child ? renderNode(child, depth + 1) : null;
         })}
       </div>

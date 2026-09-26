@@ -16,7 +16,8 @@
 - `ExportBundle` shape stays `{ version: 1, tree, contents }`; files exported by v0.2.0 must still import.
 - Import **always** assigns a new `treeId` and remaps every node/edge id; imports never overwrite.
 - `TreeSidebar` copy uses the word **Documents**.
-- No new runtime dependencies.
+- No new runtime dependencies. (`@playwright/test` is a dev dependency added in Task 6.)
+- End-to-end behavior is verified in a real browser with Playwright (`pnpm test:e2e`), in addition to unit tests.
 - Run from the repo root `/home/whj/Repo/askTree`. Node is via `export PATH="$HOME/.nvm/versions/node/v24.16.0/bin:$PATH"`.
 - Tests live in `tests/core/` (core) and `apps/web/src/**/__tests__/` (web).
 
@@ -1048,7 +1049,8 @@ it("exports the active document", async () => {
 it("disables export when no document is active", () => {
   mocks.ctx = { ...mocks.ctx, activeTreeId: null };
   render(<AppHeader onSettings={vi.fn()} onToggleSidebar={vi.fn()} />);
-  expect(screen.getByRole("button", { name: /export tree/i })).toBeDisabled();
+  const button = screen.getByRole("button", { name: /export tree/i }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
 });
 
 it("appends an imported document instead of replacing", async () => {
@@ -1404,7 +1406,197 @@ git commit -m "Show the forest in the sidebar with per-document actions"
 
 ---
 
-### Task 6: Full verification
+### Task 6: Playwright end-to-end verification
+
+**Files:**
+- Modify: `package.json` (root — add the `test:e2e` script and the dev dependency)
+- Create: `playwright.config.ts`
+- Create: `e2e/forest.spec.ts`
+- Modify: `.gitignore`
+
+**Interfaces:**
+- Consumes: the built web app served by the Vite dev server at `http://localhost:5173/askTree/`; the context API from Task 4; the DOM contract from Task 5 (`.doc-row`, `.doc-row.active`, `.doc-rename-input`, `aria-label="Rename <title>"`, `aria-label="Export <title>"`, `aria-label="Delete <title>"`, `aria-label="Toggle <title>"`); the existing `QuestionInputBar` placeholder `/ask anything/i` and the `Send` button.
+- Produces: `pnpm test:e2e` runs headless Chromium against a freshly started dev server.
+
+- [ ] **Step 1: Install Playwright**
+
+```bash
+pnpm add -D -w @playwright/test
+pnpm exec playwright install chromium
+```
+
+Note: `playwright install` downloads a browser and needs network access. If it fails in this environment, stop and report the blocker rather than skipping the task.
+
+- [ ] **Step 2: Add the config and ignores**
+
+Create `playwright.config.ts`:
+
+```ts
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 30_000,
+  use: {
+    baseURL: "http://localhost:5173/askTree/",
+    trace: "on-first-retry",
+  },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: {
+    command: "pnpm dev",
+    url: "http://localhost:5173/askTree/",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+});
+```
+
+Add to the root `package.json` scripts: `"test:e2e": "playwright test"`.
+
+Add to `.gitignore`: `test-results/` and `playwright-report/`.
+
+- [ ] **Step 3: Write the spec**
+
+Create `e2e/forest.spec.ts`:
+
+```ts
+import { test, expect, type Page } from "@playwright/test";
+
+const mdInput = (page: Page) => page.locator('header input[accept=".md,.markdown,.txt"]');
+
+async function openDoc(page: Page, name: string, body: string) {
+  await mdInput(page).setInputFiles({
+    name: `${name}.md`,
+    mimeType: "text/markdown",
+    buffer: Buffer.from(body),
+  });
+}
+
+test("opens multiple documents and highlights the newest", async ({ page }) => {
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nfirst article");
+  await expect(page.locator(".doc-row")).toHaveCount(1);
+
+  await openDoc(page, "beta", "# Beta\n\nsecond article");
+  await expect(page.locator(".doc-row")).toHaveCount(2);
+  await expect(page.locator(".doc-row", { hasText: "beta" })).toHaveClass(/active/);
+  await expect(page.locator(".doc-row", { hasText: "alpha" })).not.toHaveClass(/active/);
+});
+
+test("switches documents without losing their content", async ({ page }) => {
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nfirst article");
+  await openDoc(page, "beta", "# Beta\n\nsecond article");
+  await expect(page.getByText("second article")).toBeVisible();
+
+  await page.locator(".doc-row", { hasText: "alpha" }).click();
+  await expect(page.locator(".doc-row", { hasText: "alpha" })).toHaveClass(/active/);
+  await expect(page.getByText("first article")).toBeVisible();
+});
+
+test("renames a document and persists the name across reload", async ({ page }) => {
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nbody");
+
+  const row = page.locator(".doc-row", { hasText: "alpha" });
+  await row.hover();
+  await row.getByLabel("Rename alpha").click();
+  const input = row.locator(".doc-rename-input");
+  await input.fill("Renamed");
+  await input.press("Enter");
+
+  await expect(page.locator(".doc-row", { hasText: "Renamed" })).toHaveCount(1);
+
+  await page.reload();
+  await expect(page.locator(".doc-row", { hasText: "Renamed" })).toHaveCount(1);
+});
+
+test("exports the active document and imports it as a new one", async ({ page }) => {
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nbody");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Export Tree" }).click(),
+  ]);
+  const path = await download.path();
+  expect(path).toBeTruthy();
+
+  await page.locator('header input[accept=".json"]').setInputFiles(path!);
+  await expect(page.locator(".doc-row")).toHaveCount(2);
+});
+
+test("deletes documents, and deleting the last returns to the welcome screen", async ({ page }) => {
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nbody");
+  await openDoc(page, "beta", "# Beta\n\nbody");
+
+  const beta = page.locator(".doc-row", { hasText: "beta" });
+  await beta.hover();
+  await beta.getByLabel("Delete beta").click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".doc-row")).toHaveCount(1);
+
+  const alpha = page.locator(".doc-row", { hasText: "alpha" });
+  await alpha.hover();
+  await alpha.getByLabel("Delete alpha").click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".doc-row")).toHaveCount(0);
+  await expect(page.getByText("Welcome to AskTree")).toBeVisible();
+});
+
+test("keeps each document's questions separate", async ({ page }) => {
+  // Point the LLM at a same-origin path and intercept it, so no real model is called.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "asktree_llm_config",
+      JSON.stringify({
+        config: { endpoint: "http://localhost:5173/fake-llm", model: "test", apiKey: "x" },
+        provider: "openai",
+      }),
+    );
+  });
+  await page.route("**/fake-llm/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({ choices: [{ message: { content: "STUB ANSWER" } }] }),
+    }),
+  );
+
+  await page.goto("/");
+  await openDoc(page, "alpha", "# Alpha\n\nalpha passage");
+  await openDoc(page, "beta", "# Beta\n\nbeta passage");
+
+  // Free ask on the active document (beta).
+  await page.getByPlaceholder(/ask anything/i).fill("beta question");
+  await page.getByRole("button", { name: /^send$/i }).click();
+  await expect(page.getByText("STUB ANSWER")).toBeVisible();
+
+  // Alpha has no questions; beta keeps its own.
+  await page.locator(".doc-row", { hasText: "alpha" }).click();
+  await expect(page.locator(".tree-node", { hasText: "beta question" })).toHaveCount(0);
+  await page.locator(".doc-row", { hasText: "beta" }).click();
+  await expect(page.locator(".tree-node", { hasText: "beta question" })).toHaveCount(1);
+});
+```
+
+- [ ] **Step 4: Run the suite**
+
+Run: `pnpm test:e2e`
+Expected: 6 passed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add package.json pnpm-lock.yaml playwright.config.ts e2e/forest.spec.ts .gitignore
+git commit -m "Add Playwright end-to-end coverage for the forest"
+```
+
+---
+
+### Task 7: Full verification
 
 **Files:** none (verification only).
 
@@ -1437,6 +1629,6 @@ Summarize pass/fail for steps 1–3 with the observed output. Do not claim compl
 
 ## Self-Review
 
-- **Spec coverage:** forest index + per-tree storage (Task 1); ForestStore list/active/create/rename/delete (Task 2); import remapping + per-document export (Task 3); context + nullable active tree + switch resets `activePath`/`selectedText` + header without `🧹`, export active, import appends, `📂` appends (Task 4); sidebar forest with expand/collapse, rename, export, delete, `＋ New`, `Documents` heading, `＋ New` = clear selection (Task 5); duplicate titles and dangling-index handling (Tasks 2/5 tests). No migration anywhere (Global Constraints).
+- **Spec coverage:** forest index + per-tree storage (Task 1); ForestStore list/active/create/rename/delete (Task 2); import remapping + per-document export (Task 3); context + nullable active tree + switch resets `activePath`/`selectedText` + header without `🧹`, export active, import appends, `📂` appends (Task 4); sidebar forest with expand/collapse, rename, export, delete, `＋ New`, `Documents` heading, `＋ New` = clear selection (Task 5); end-to-end browser coverage of the same flows including per-document question isolation (Task 6); duplicate titles and dangling-index handling (Tasks 2/5 tests). No migration anywhere (Global Constraints).
 - **Placeholders:** none — every code step carries the code.
 - **Type consistency:** `ForestIndex`, `TreeSummary`, `readTreeMeta(treeId)`, `writeTreeMeta(treeId, json)`, `deleteTreeMeta`, `createDocument`, `deleteDocument`, `renameDocument`, `exportDocument`, `importDocument`, `setActiveTree` are used with the same names and arities throughout.

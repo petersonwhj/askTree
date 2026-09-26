@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { InMemoryStorageAdapter, TreeStore } from "@asktree/core";
 
 const mocks = vi.hoisted(() => ({ ctx: {} as Record<string, unknown> }));
 
@@ -8,15 +7,17 @@ vi.mock("../../hooks/useTree", () => ({ useTree: () => mocks.ctx }));
 
 import { AppHeader } from "../AppHeader";
 
+const baseCtx = () => ({
+  activeTreeId: "t1" as string | null,
+  trees: [{ id: "t1", title: "My Article", updatedAt: 0 }],
+  createDocument: vi.fn(),
+  importDocument: vi.fn(),
+  exportDocument: vi.fn(),
+});
+
 describe("AppHeader brand", () => {
   it("renders the two-tone AskTree logo with an icon", () => {
-    mocks.ctx = {
-      store: new TreeStore(new InMemoryStorageAdapter()),
-      importBundle: vi.fn(),
-      exportBundle: vi.fn(),
-      createRootTree: vi.fn(),
-      resetTree: vi.fn(),
-    };
+    mocks.ctx = baseCtx();
 
     const { container } = render(
       <AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />,
@@ -29,20 +30,14 @@ describe("AppHeader brand", () => {
     expect(wordmark?.querySelector(".app-brand-tree")?.textContent).toBe("Tree");
   });
 
-  it("suggests the root article title as the default export filename", async () => {
-    const store = new TreeStore(new InMemoryStorageAdapter());
-    await store.createTree("content", "My Article");
-
+  it("suggests the active document title as the default export filename", async () => {
     mocks.ctx = {
-      store,
-      importBundle: vi.fn(),
-      exportBundle: vi.fn().mockResolvedValue({
+      ...baseCtx(),
+      exportDocument: vi.fn().mockResolvedValue({
         version: 1,
         tree: { version: 1, rootNodeId: "root", nodes: {}, createdAt: 0, updatedAt: 0 },
         contents: {},
       }),
-      createRootTree: vi.fn(),
-      resetTree: vi.fn(),
     };
 
     const write = vi.fn().mockResolvedValue(undefined);
@@ -64,5 +59,50 @@ describe("AppHeader brand", () => {
     );
 
     delete (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+});
+
+describe("AppHeader forest actions", () => {
+  it("exports the active document", async () => {
+    const exportDocument = vi.fn().mockResolvedValue({ version: 1, tree: {}, contents: {} });
+    mocks.ctx = { ...baseCtx(), activeTreeId: "t1", exportDocument };
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:mock") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /export tree/i }));
+
+    await waitFor(() => expect(exportDocument).toHaveBeenCalledWith("t1"));
+  });
+
+  it("disables export when no document is active", () => {
+    mocks.ctx = { ...baseCtx(), activeTreeId: null };
+
+    render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    const button = screen.getByRole("button", { name: /export tree/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it("appends an imported document instead of replacing", async () => {
+    const importDocument = vi.fn();
+    mocks.ctx = { ...baseCtx(), importDocument };
+
+    const { container } = render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    const input = container.querySelector('input[accept=".json"]') as HTMLInputElement;
+    const file = new File(["{}"], "tree.json", { type: "application/json" });
+    Object.defineProperty(file, "text", {
+      value: () => Promise.resolve('{"version":1,"tree":{"nodes":{}},"contents":{}}'),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(importDocument).toHaveBeenCalled());
+  });
+
+  it("has no clear button", () => {
+    mocks.ctx = baseCtx();
+
+    render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    expect(screen.queryByTitle(/clear current tree/i)).toBeNull();
   });
 });

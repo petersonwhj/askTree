@@ -1,28 +1,42 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
-import { TreeStore, LLMService, DEFAULT_PROMPT_CONFIG, type Node, type Edge, type ExportBundle, type PromptConfig } from "@asktree/core";
+import {
+  ForestStore,
+  LLMService,
+  DEFAULT_PROMPT_CONFIG,
+  type Node,
+  type Edge,
+  type ExportBundle,
+  type PromptConfig,
+  type TreeStore,
+  type TreeSummary,
+} from "@asktree/core";
 import { IndexedDBStorageAdapter } from "../storage/indexeddb-adapter";
 
 interface TreeContextValue {
-  store: TreeStore;
+  store: TreeStore | null;
   llm: LLMService;
   activePath: Node[];
+  trees: TreeSummary[];
+  activeTreeId: string | null;
+  setActiveTree: (id: string | null) => Promise<void>;
+  createDocument: (content: string, title: string) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  renameDocument: (id: string, title: string) => Promise<void>;
+  exportDocument: (id: string) => Promise<ExportBundle | null>;
+  importDocument: (bundle: ExportBundle) => Promise<void>;
   navigateTo: (nodeId: string) => void;
   navigateUp: () => void;
   focusNode: (nodeId: string) => void;
-  createRootTree: (content: string, title: string) => Promise<void>;
-  resetTree: () => Promise<void>;
   addChildNode: (parentId: string, edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">, answerContent: string) => Promise<Node>;
   updateStatus: (nodeId: string, status: Node["status"]) => void;
   removeNode: (nodeId: string) => Promise<void>;
   selectedText: { text: string; start: number; end: number; nodeId: string } | null;
   setSelectedText: (s: TreeContextValue["selectedText"]) => void;
-  importBundle: (bundle: ExportBundle) => Promise<void>;
-  exportBundle: () => Promise<ExportBundle | null>;
   promptConfig: PromptConfig;
   setPromptConfig: (c: PromptConfig) => void;
   showExplored: boolean;
   setShowExplored: (show: boolean) => void;
-  /** Bumped on tree mutations so derived views can recompute. */
+  /** Bumped on forest or tree mutations so derived views can recompute. */
   treeVersion: number;
   isLoading: boolean;
 }
@@ -30,8 +44,12 @@ interface TreeContextValue {
 const TreeContext = createContext<TreeContextValue | null>(null);
 
 export function TreeProvider({ children }: { children: React.ReactNode }) {
-  const storeRef = useRef(new TreeStore(new IndexedDBStorageAdapter()));
+  const adapterRef = useRef(new IndexedDBStorageAdapter());
+  const forestRef = useRef<ForestStore | null>(null);
   const llmRef = useRef(new LLMService());
+  const [store, setStore] = useState<TreeStore | null>(null);
+  const [trees, setTrees] = useState<TreeSummary[]>([]);
+  const [activeTreeId, setActiveTreeId] = useState<string | null>(null);
   const [activePath, setActivePath] = useState<Node[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedText, setSelectedText] = useState<TreeContextValue["selectedText"]>(null);
@@ -61,20 +79,25 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("asktree_show_explored", String(showExplored));
   }, [showExplored]);
 
+  const refresh = useCallback((forest: ForestStore) => {
+    const active = forest.getActiveTree();
+    setTrees(forest.listTrees());
+    setActiveTreeId(forest.getActiveTreeId());
+    setStore(active);
+    setActivePath(active ? [active.getRoot()] : []);
+    setTreeVersion((v) => v + 1);
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
-        const adapter = new IndexedDBStorageAdapter();
-        const meta = await adapter.readTreeMeta();
-        if (meta) {
-          const store = await TreeStore.deserialize(meta, adapter);
-          storeRef.current = store;
-          setActivePath([store.getRoot()]);
-        }
+        const forest = await ForestStore.load(adapterRef.current);
+        forestRef.current = forest;
+        refresh(forest);
       } catch {}
       setIsLoading(false);
     })();
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     try {
@@ -87,11 +110,13 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const navigateTo = useCallback((nodeId: string) => {
-    setActivePath(storeRef.current.getPath(nodeId));
+    const active = forestRef.current?.getActiveTree();
+    if (active) setActivePath(active.getPath(nodeId));
   }, []);
 
   const focusNode = useCallback((nodeId: string) => {
-    const node = storeRef.current.getNode(nodeId);
+    const active = forestRef.current?.getActiveTree();
+    const node = active?.getNode(nodeId);
     if (node) setActivePath([node]);
   }, []);
 
@@ -99,67 +124,94 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     if (activePath.length > 1) setActivePath((p) => p.slice(0, -1));
   }, [activePath]);
 
-  const createRootTree = useCallback(async (content: string, title: string) => {
-    const root = await storeRef.current.createTree(content, title);
-    setActivePath([root]);
+  const setActiveTree = useCallback(async (id: string | null) => {
+    const forest = forestRef.current;
+    if (!forest) return;
+    await forest.setActiveTree(id);
+    setSelectedText(null);
+    refresh(forest);
+  }, [refresh]);
+
+  const createDocument = useCallback(async (content: string, title: string) => {
+    const forest = forestRef.current;
+    if (!forest) return;
+    await forest.createTree(content, title);
+    setSelectedText(null);
+    refresh(forest);
+  }, [refresh]);
+
+  const deleteDocument = useCallback(async (id: string) => {
+    const forest = forestRef.current;
+    if (!forest) return;
+    await forest.deleteTree(id);
+    setSelectedText(null);
+    refresh(forest);
+  }, [refresh]);
+
+  const renameDocument = useCallback(async (id: string, title: string) => {
+    const forest = forestRef.current;
+    if (!forest) return;
+    await forest.renameTree(id, title);
+    refresh(forest);
+  }, [refresh]);
+
+  const exportDocument = useCallback(async (id: string) => {
+    const forest = forestRef.current;
+    if (!forest) return null;
+    try {
+      return await forest.exportTree(id);
+    } catch {
+      return null;
+    }
   }, []);
 
-  const resetTree = useCallback(async () => {
-    await storeRef.current.reset();
-    setActivePath([]);
+  const importDocument = useCallback(async (bundle: ExportBundle) => {
+    const forest = forestRef.current;
+    if (!forest) return;
+    await forest.importBundle(bundle);
     setSelectedText(null);
-  }, []);
+    refresh(forest);
+  }, [refresh]);
 
   const addChildNode = useCallback(async (
     parentId: string,
     edge: Omit<Edge, "id" | "sourceNodeId" | "targetNodeId">,
     answerContent: string,
   ) => {
-    const child = await storeRef.current.addChild(parentId, edge, answerContent);
-    setActivePath(storeRef.current.getPath(child.id));
+    const active = forestRef.current?.getActiveTree();
+    if (!active) throw new Error("No active document");
+    const child = await active.addChild(parentId, edge, answerContent);
+    setActivePath(active.getPath(child.id));
+    setTreeVersion((v) => v + 1);
     return child;
   }, []);
 
   const updateStatus = useCallback((nodeId: string, status: Node["status"]) => {
-    storeRef.current.updateStatus(nodeId, status);
-    // Patch the matching node in activePath so React re-renders with new status
-    setActivePath((prev) =>
-      prev.map((n) => (n.id === nodeId ? { ...n, status } : n))
-    );
+    const active = forestRef.current?.getActiveTree();
+    if (!active) return;
+    active.updateStatus(nodeId, status);
+    setActivePath((prev) => prev.map((n) => (n.id === nodeId ? { ...n, status } : n)));
   }, []);
 
   const removeNode = useCallback(async (nodeId: string) => {
-    await storeRef.current.removeNode(nodeId);
-    // If the deleted node is in the active path, navigate up to its parent
+    const active = forestRef.current?.getActiveTree();
+    if (!active) return;
+    await active.removeNode(nodeId);
     setActivePath((prev) => {
       const idx = prev.findIndex((n) => n.id === nodeId);
-      if (idx === -1) return prev; // not in path, no change
-      // Trim path to the node before the deleted one; if that leaves empty, clear
+      if (idx === -1) return prev;
       const trimmed = prev.slice(0, idx);
       return trimmed.length > 0 ? trimmed : [];
     });
-    // Always signal a mutation, even when the removed node was off-path, so
-    // derived views (explored marks, highlights) refresh immediately.
     setTreeVersion((v) => v + 1);
-  }, []);
-
-  const importBundleFn = useCallback(async (bundle: ExportBundle) => {
-    const adapter = new IndexedDBStorageAdapter();
-    const store = await TreeStore.importBundle(bundle, adapter);
-    storeRef.current = store;
-    setActivePath([store.getRoot()]);
-  }, []);
-
-  const exportBundleFn = useCallback(async () => {
-    try { return await storeRef.current.exportBundle(); }
-    catch { return null; }
   }, []);
 
   return (
     <TreeContext.Provider value={{
-        store: storeRef.current, llm: llmRef.current, activePath, navigateTo, navigateUp, focusNode,
-        createRootTree, resetTree, addChildNode, updateStatus, removeNode, selectedText, setSelectedText,
-      importBundle: importBundleFn, exportBundle: exportBundleFn, promptConfig, setPromptConfig, isLoading,
+      store, llm: llmRef.current, activePath, trees, activeTreeId, setActiveTree,
+      createDocument, deleteDocument, renameDocument, exportDocument, importDocument,
+      navigateTo, navigateUp, focusNode, addChildNode, updateStatus, removeNode,
+      selectedText, setSelectedText, promptConfig, setPromptConfig, isLoading,
       showExplored, setShowExplored, treeVersion,
     }}>
       {children}
