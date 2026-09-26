@@ -451,3 +451,10 @@ body {
   padding: 0 4px; margin-left: 4px;
 }
 
+.ask-images { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px 0; }
+.ask-image { position: relative; }
+.ask-image img { height: 48px; border-radius: 6px; border: 1px solid #30363d; display: block; }
+.ask-image button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: #30363d; border: 1px solid #484f58; color: #c9d1d9; cursor: pointer; font-size: 10px; line-height: 1; padding: 0; }
+.node-images { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 0; }
+.node-image { max-height: 120px; border-radius: 6px; border: 1px solid #30363d; }
+

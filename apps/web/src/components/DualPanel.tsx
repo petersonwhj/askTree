@@ -12,7 +12,7 @@ import {
   SUGGEST_TEMPLATE,
   parseSuggestedQuestions,
 } from "@asktree/core";
-import type { Node, TreeStore } from "@asktree/core";
+import type { Node, TreeStore, AskImage } from "@asktree/core";
 
 /** Passages already asked about: spans from the node's surviving child edges. */
 function exploredSpans(
@@ -186,6 +186,13 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     [showExplored, store, currentNode, treeVersion],
   );
 
+  const currentEdgeImages = useMemo(() => {
+    if (!currentNode || !parentNode || currentNode.id === parentNode.id) return [];
+    if (!store) return [];
+    const edges = store.getNode(parentNode.id)?.children ?? parentNode.children;
+    return edges.find((e) => e.targetNodeId === currentNode.id)?.images ?? [];
+  }, [parentNode, currentNode, store, treeVersion]);
+
   const handleDividerDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -286,7 +293,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   if (!store) return null;
 
-  const handleSendQuestion = async (question: string) => {
+  const handleSendQuestion = async (question: string, images: AskImage[] = []) => {
     setError(null);
     if (!store) return;
     const activeStore = store;
@@ -320,6 +327,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         startPos: askedStart,
         endPos: askedEnd,
         question,
+        ...(images.length > 0 ? { images } : {}),
       }, placeholder);
     } catch (e) {
       setError("Failed to create node: " + (e as Error).message);
@@ -344,6 +352,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           contextSlices: slices,
           system: rendered.system,
           user: rendered.user,
+          ...(images.length > 0 ? { images } : {}),
         });
         await activeStore.updateContent(childId, answer);
         setChildContent(answer);
@@ -487,6 +496,18 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 </select>
               </div>
             </div>
+            {currentEdgeImages.length > 0 && (
+              <div className="node-images">
+                {currentEdgeImages.map((img, i) => (
+                  <img
+                    key={i}
+                    className="node-image"
+                    src={`data:${img.mediaType};base64,${img.data}`}
+                    alt="attached"
+                  />
+                ))}
+              </div>
+            )}
             <MarkdownPane
               content={childContent}
               onTextSelected={(text, start, end) => handleTextSelected(text, start, end, currentNode.id)}

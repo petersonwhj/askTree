@@ -305,4 +305,11 @@ describe("DualPanel panel actions and free-ask target", () => {
       expect(current.children.some((e) => e.question === "Why?")).toBe(true);
     });
   });
+
+  it("shows the images a question was asked with", async () => {
+    store.getNode(rootId)!.children[0].images = [{ mediaType: "image/png", data: "QUJD" }];
+
+    const { container } = render(<DualPanel />);
+    await waitFor(() => expect(container.querySelectorAll(".node-image").length).toBe(1));
+  });
 });
