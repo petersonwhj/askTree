@@ -1,3 +1,10 @@
+export interface AskImage {
+  /** e.g. "image/png" */
+  mediaType: string;
+  /** base64 without the data: prefix */
+  data: string;
+}
+
 export interface Edge {
   id: string;
   sourceNodeId: string;
@@ -6,6 +13,8 @@ export interface Edge {
   startPos: number;
   endPos: number;
   question: string;
+  /** Images attached to this question, when the ask was multimodal. */
+  images?: AskImage[];
 }
 
 export interface Node {
