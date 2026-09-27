@@ -1,4 +1,5 @@
-import type { Node, Edge, TreeJSON, ExportBundle, DocumentKind } from "./types";
+import type { Node, Edge, TreeJSON, ExportBundle, AssetEntry, DocumentKind } from "./types";
+import { arrayBufferToBase64 } from "./base64";
 import type { StorageAdapter } from "./storage-adapter";
 
 export class TreeStore {
@@ -238,7 +239,17 @@ export class TreeStore {
         contents[id] = "";
       }
     }
-    return { version: 1, tree, contents };
+    const assets: Record<string, AssetEntry> = {};
+    if (this.currentAssetId) {
+      const data = await this.adapter.readAsset(this.currentAssetId).catch(() => null);
+      if (data) {
+        assets[this.currentAssetId] = {
+          mediaType: "application/pdf",
+          data: arrayBufferToBase64(data),
+        };
+      }
+    }
+    return { version: 1, tree, contents, ...(Object.keys(assets).length ? { assets } : {}) };
   }
 
   private async persist(): Promise<void> {

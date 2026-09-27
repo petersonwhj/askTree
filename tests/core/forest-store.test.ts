@@ -165,6 +165,22 @@ describe("ForestStore assets", () => {
     await forest.deleteTree(forest.listTrees()[0].id);
     expect(await adapter.readAsset(assetId)).toBeNull();
   });
+
+  it("round-trips an asset through export and import with a new id", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    await forest.createTree("", "Paper", "pdf", new Uint8Array([7, 7, 7]).buffer);
+    const oldId = forest.getActiveTree()!.assetId!;
+
+    const bundle = await forest.exportTree(forest.listTrees()[0].id);
+    expect(bundle.assets?.[oldId]?.data).toBeTruthy();
+
+    const newTreeId = await forest.importBundle(bundle);
+    const imported = forest.getTree(newTreeId);
+    expect(imported.assetId).toBeTruthy();
+    expect(imported.assetId).not.toBe(oldId);
+    expect(new Uint8Array((await imported.getAsset())!)).toEqual(new Uint8Array([7, 7, 7]));
+  });
 });
 
 describe("ForestStore kind", () => {

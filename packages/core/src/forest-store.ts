@@ -1,4 +1,5 @@
 import type { Node, TreeJSON, ExportBundle, ForestIndex, TreeSummary, DocumentKind } from "./types";
+import { base64ToArrayBuffer } from "./base64";
 import type { StorageAdapter } from "./storage-adapter";
 import { TreeStore } from "./tree-store";
 
@@ -150,6 +151,17 @@ export class ForestStore {
       updatedAt: Date.now(),
       ...(Object.keys(readingPositions).length > 0 ? { readingPositions } : {}),
     };
+
+    const assetMap = new Map<string, string>();
+    for (const [oldId, entry] of Object.entries(bundle.assets ?? {})) {
+      if (!entry.data) continue;
+      const newId = crypto.randomUUID();
+      await this.adapter.writeAsset(newId, base64ToArrayBuffer(entry.data));
+      assetMap.set(oldId, newId);
+    }
+    if (bundle.tree.assetId && assetMap.has(bundle.tree.assetId)) {
+      json.assetId = assetMap.get(bundle.tree.assetId);
+    }
 
     const treeId = crypto.randomUUID();
     await this.adapter.writeTreeMeta(treeId, json);

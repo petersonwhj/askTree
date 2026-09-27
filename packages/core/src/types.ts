@@ -43,10 +43,19 @@ export interface TreeJSON {
   readingPositions?: Record<string, number>;
 }
 
+export interface AssetEntry {
+  mediaType: string;
+  /** base64, for JSON exports */
+  data?: string;
+  /** entry name inside a zip, for zip exports */
+  file?: string;
+}
+
 export interface ExportBundle {
   version: 1;
   tree: TreeJSON;
   contents: Record<string, string>;
+  assets?: Record<string, AssetEntry>;
 }
 
 export interface ForestIndex {
