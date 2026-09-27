@@ -10,8 +10,8 @@ export interface StorageAdapter {
   readTreeMeta(treeId: string): Promise<TreeJSON | null>;
   writeTreeMeta(treeId: string, json: TreeJSON): Promise<void>;
   deleteTreeMeta(treeId: string): Promise<void>;
-  readAsset(id: string): Promise<ArrayBuffer | null>;
-  writeAsset(id: string, data: ArrayBuffer): Promise<void>;
+  readAsset(id: string): Promise<Blob | null>;
+  writeAsset(id: string, data: Blob): Promise<void>;
   deleteAsset(id: string): Promise<void>;
   clear(): Promise<void>;
 }
@@ -20,7 +20,7 @@ export class InMemoryStorageAdapter implements StorageAdapter {
   private contents = new Map<string, string>();
   private metas = new Map<string, TreeJSON>();
   private forest: ForestIndex | null = null;
-  private assets = new Map<string, ArrayBuffer>();
+  private assets = new Map<string, Blob>();
 
   async readNodeContent(nodeId: string): Promise<string> {
     const c = this.contents.get(nodeId);
@@ -60,11 +60,11 @@ export class InMemoryStorageAdapter implements StorageAdapter {
     this.metas.delete(treeId);
   }
 
-  async readAsset(id: string): Promise<ArrayBuffer | null> {
+  async readAsset(id: string): Promise<Blob | null> {
     return this.assets.get(id) ?? null;
   }
 
-  async writeAsset(id: string, data: ArrayBuffer): Promise<void> {
+  async writeAsset(id: string, data: Blob): Promise<void> {
     this.assets.set(id, data);
   }
 

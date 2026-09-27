@@ -132,7 +132,7 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
     });
   }
 
-  async readAsset(id: string): Promise<ArrayBuffer | null> {
+  async readAsset(id: string): Promise<Blob | null> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(ASSET_STORE, "readonly");
@@ -142,7 +142,7 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
     });
   }
 
-  async writeAsset(id: string, data: ArrayBuffer): Promise<void> {
+  async writeAsset(id: string, data: Blob): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(ASSET_STORE, "readwrite");

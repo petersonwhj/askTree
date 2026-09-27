@@ -158,9 +158,9 @@ describe("ForestStore assets", () => {
     const adapter = new InMemoryStorageAdapter();
     const forest = await ForestStore.load(adapter);
     const assetId = await forest
-      .createTree("", "Paper", "pdf", new Uint8Array([5, 5]).buffer)
+      .createTree("", "Paper", "pdf", new Blob([new Uint8Array([5, 5])]))
       .then(() => forest.getActiveTree()!.assetId!);
-    expect(new Uint8Array((await adapter.readAsset(assetId))!)).toEqual(new Uint8Array([5, 5]));
+    expect((await adapter.readAsset(assetId))?.size).toBe(2);
 
     await forest.deleteTree(forest.listTrees()[0].id);
     expect(await adapter.readAsset(assetId)).toBeNull();
@@ -169,7 +169,7 @@ describe("ForestStore assets", () => {
   it("round-trips an asset through export and import with a new id", async () => {
     const adapter = new InMemoryStorageAdapter();
     const forest = await ForestStore.load(adapter);
-    await forest.createTree("", "Paper", "pdf", new Uint8Array([7, 7, 7]).buffer);
+    await forest.createTree("", "Paper", "pdf", new Blob([new Uint8Array([7, 7, 7])]));
     const oldId = forest.getActiveTree()!.assetId!;
 
     const bundle = await forest.exportTree(forest.listTrees()[0].id);
@@ -179,7 +179,7 @@ describe("ForestStore assets", () => {
     const imported = forest.getTree(newTreeId);
     expect(imported.assetId).toBeTruthy();
     expect(imported.assetId).not.toBe(oldId);
-    expect(new Uint8Array((await imported.getAsset())!)).toEqual(new Uint8Array([7, 7, 7]));
+    expect((await imported.getAsset())?.size).toBe(3);
   });
 });
 

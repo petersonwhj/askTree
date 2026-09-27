@@ -49,7 +49,7 @@ export class TreeStore {
   }
 
   /** Store a source asset (e.g. a PDF) and reference it from this tree. */
-  async setAsset(data: ArrayBuffer): Promise<string> {
+  async setAsset(data: Blob): Promise<string> {
     const id = crypto.randomUUID();
     await this.adapter.writeAsset(id, data);
     this.currentAssetId = id;
@@ -57,7 +57,7 @@ export class TreeStore {
     return id;
   }
 
-  async getAsset(): Promise<ArrayBuffer | null> {
+  async getAsset(): Promise<Blob | null> {
     return this.currentAssetId ? this.adapter.readAsset(this.currentAssetId) : null;
   }
 
@@ -241,11 +241,11 @@ export class TreeStore {
     }
     const assets: Record<string, AssetEntry> = {};
     if (this.currentAssetId) {
-      const data = await this.adapter.readAsset(this.currentAssetId).catch(() => null);
-      if (data) {
+      const blob = await this.adapter.readAsset(this.currentAssetId).catch(() => null);
+      if (blob) {
         assets[this.currentAssetId] = {
           mediaType: "application/pdf",
-          data: arrayBufferToBase64(data),
+          data: arrayBufferToBase64(await blob.arrayBuffer()),
         };
       }
     }

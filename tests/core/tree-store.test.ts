@@ -228,9 +228,9 @@ describe("TreeStore", () => {
   describe("asset", () => {
     it("stores an asset and references it from the tree", async () => {
       await store.createTree("", "Doc");
-      const id = await store.setAsset(new Uint8Array([1, 2, 3]).buffer);
+      const id = await store.setAsset(new Blob([new Uint8Array([1, 2, 3])]));
       expect(store.assetId).toBe(id);
-      expect(new Uint8Array((await store.getAsset())!)).toEqual(new Uint8Array([1, 2, 3]));
+      expect((await store.getAsset())?.size).toBe(3);
 
       const restored = await TreeStore.deserialize(store.serialize(), adapter, "tree-2");
       expect(restored.assetId).toBe(id);

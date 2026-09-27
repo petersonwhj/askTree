@@ -69,7 +69,7 @@ export class ForestStore {
     content: string,
     title: string,
     kind: DocumentKind = "markdown",
-    asset?: ArrayBuffer,
+    asset?: Blob,
   ): Promise<Node> {
     const treeId = crypto.randomUUID();
     const store = new TreeStore(this.adapter, treeId, kind);
@@ -156,7 +156,7 @@ export class ForestStore {
     for (const [oldId, entry] of Object.entries(bundle.assets ?? {})) {
       if (!entry.data) continue;
       const newId = crypto.randomUUID();
-      await this.adapter.writeAsset(newId, base64ToArrayBuffer(entry.data));
+      await this.adapter.writeAsset(newId, new Blob([base64ToArrayBuffer(entry.data)]));
       assetMap.set(oldId, newId);
     }
     if (bundle.tree.assetId && assetMap.has(bundle.tree.assetId)) {

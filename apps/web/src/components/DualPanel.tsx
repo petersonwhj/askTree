@@ -112,7 +112,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [debugSuggestion, setDebugSuggestion] = useState(false);
   const [freeAskTarget, setFreeAskTarget] = useState<AskTarget>("right");
   const [selectedImage, setSelectedImage] = useState<AskImage | null>(null);
-  const [pdfAsset, setPdfAsset] = useState<ArrayBuffer | null>(null);
+  const [pdfAsset, setPdfAsset] = useState<Blob | null>(null);
   const [pdfPage, setPdfPage] = useState(1);
   const pdfRef = useRef<PdfPaneHandle>(null);
 

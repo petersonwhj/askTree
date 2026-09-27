@@ -37,16 +37,15 @@ describe("openDocumentFile", () => {
     ).rejects.toThrow('Unsupported file "photo.png"');
   });
 
-  it("opens a .pdf with its bytes as the asset", async () => {
+  it("opens a .pdf passing the file itself as the asset", async () => {
     const create = vi.fn();
     const file = new File(["pdf"], "paper.pdf", { type: "application/pdf" });
-    Object.defineProperty(file, "arrayBuffer", { value: async () => new Uint8Array([1, 2]).buffer });
 
     await openDocumentFile(file, create);
     const [content, title, kind, asset] = create.mock.calls[0];
     expect(content).toBe("");
     expect(title).toBe("paper");
     expect(kind).toBe("pdf");
-    expect(new Uint8Array(asset)).toEqual(new Uint8Array([1, 2]));
+    expect(asset).toBe(file);
   });
 });

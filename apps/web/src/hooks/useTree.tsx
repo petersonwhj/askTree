@@ -20,7 +20,7 @@ interface TreeContextValue {
   trees: TreeSummary[];
   activeTreeId: string | null;
   setActiveTree: (id: string | null) => Promise<void>;
-  createDocument: (content: string, title: string, kind?: DocumentKind, asset?: ArrayBuffer) => Promise<void>;
+  createDocument: (content: string, title: string, kind?: DocumentKind, asset?: Blob) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   renameDocument: (id: string, title: string) => Promise<void>;
   exportDocument: (id: string) => Promise<ExportBundle | null>;
@@ -137,7 +137,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     content: string,
     title: string,
     kind?: DocumentKind,
-    asset?: ArrayBuffer,
+    asset?: Blob,
   ) => {
     const forest = forestRef.current;
     if (!forest) return;

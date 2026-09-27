@@ -19,7 +19,7 @@ function Probe() {
       <span data-testid="kind">{trees[0]?.kind ?? "none"}</span>
       <button onClick={() => createDocument("body", "Doc")}>create</button>
       <button onClick={() => createDocument("body", "Docx", "docx")}>create-docx</button>
-      <button onClick={() => createDocument("", "Paper", "pdf", new Uint8Array([4, 4]).buffer)}>create-pdf</button>
+      <button onClick={() => createDocument("", "Paper", "pdf", new Blob([new Uint8Array([4, 4])]))}>create-pdf</button>
       <button onClick={() => deleteDocument(trees[0].id)}>delete-first</button>
     </div>
   );

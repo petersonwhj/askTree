@@ -21,7 +21,7 @@ export interface PdfPaneHandle {
 }
 
 interface Props {
-  asset: ArrayBuffer;
+  asset: Blob;
   /** Reading position as a 0-1 fraction of the page count (matches setReadingPosition). */
   initialFraction?: number;
   onPageChange?: (page: number, total: number) => void;
@@ -67,10 +67,13 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
 
   useEffect(() => {
     let cancelled = false;
+    // Load through an object URL: pdf.js can fetch and (re)read it, and we never
+    // hand it an ArrayBuffer that it would detach. Works for very large files
+    // that exceed Chrome's per-value IndexedDB/structured-clone limits.
+    const url = URL.createObjectURL(asset);
+    const task = pdfjs.getDocument({ url });
     (async () => {
-      // pdf.js takes ownership of the buffer it is given (transfers it to the
-      // worker), so hand it a copy; otherwise our prop is detached for good.
-      const doc = await pdfjs.getDocument({ data: asset.slice(0) }).promise;
+      const doc = await task.promise;
       if (cancelled) return;
       docRef.current = doc;
       pageImageCache.current.clear();
@@ -80,8 +83,16 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
         Math.max(1, Math.round(initialFractionRef.current * doc.numPages) || 1),
       );
       setPage(start);
-    })().catch((e) => console.error("PDF LOAD FAILED", e));
-    return () => { cancelled = true; };
+    })().catch((e) => {
+      if (!cancelled) console.error("PDF LOAD FAILED", e);
+    });
+    return () => {
+      cancelled = true;
+      // Destroy the loading task before revoking the URL (React StrictMode runs
+      // effects twice in dev; aborting cleanly avoids a spurious fetch error).
+      void task.destroy();
+      URL.revokeObjectURL(url);
+    };
   }, [asset]);
 
   // Keep the callback in a ref so a new function identity each render does not

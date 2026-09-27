@@ -5,7 +5,7 @@ export type OpenDocument = (
   content: string,
   title: string,
   kind?: DocumentKind,
-  asset?: ArrayBuffer,
+  asset?: Blob,
 ) => Promise<void>;
 
 const DOCX = /\.docx$/i;
@@ -21,7 +21,9 @@ export async function openDocumentFile(file: File, create: OpenDocument): Promis
   const title = documentTitle(file.name) || "Untitled";
 
   if (PDF.test(file.name)) {
-    await create("", title, "pdf", await file.arrayBuffer());
+    // A File is already a Blob: store it as-is instead of reading 100+ MB into
+    // an ArrayBuffer (which also exceeds Chrome's per-value IndexedDB limit).
+    await create("", title, "pdf", file);
     return;
   }
   if (DOCX.test(file.name)) {

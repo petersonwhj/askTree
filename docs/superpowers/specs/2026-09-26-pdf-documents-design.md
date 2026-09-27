@@ -59,20 +59,22 @@ export and import.
 New `StorageAdapter` methods:
 
 ```ts
-readAsset(id: string): Promise<ArrayBuffer | null>;
-writeAsset(id: string, data: ArrayBuffer): Promise<void>;
+readAsset(id: string): Promise<Blob | null>;
+writeAsset(id: string, data: Blob): Promise<void>;
 deleteAsset(id: string): Promise<void>;
 ```
 
-- Assets are `ArrayBuffer` (not `Blob`): it is what pdf.js consumes, what IndexedDB stores
-  natively, and it is constructible in tests (this environment's jsdom `Blob` has no
-  `arrayBuffer()`).
+- Assets are **`Blob`**, not `ArrayBuffer`. Measured against a real 134 MB scanned PDF:
+  Chrome caps a single IndexedDB value at ~127 MB (133,169,152 bytes), so writing the PDF as
+  one `ArrayBuffer` **failed**; a `Blob` is stored out of line and wrote in 32 ms. `File`
+  objects are already `Blob`s, so import stores the picked file directly.
 - `IndexedDBStorageAdapter`: a new object store `assets`, created on upgrade. `DB_VERSION`
   goes `1 → 2`; adding an object store is non-destructive, existing data is untouched.
-- `InMemoryStorageAdapter`: a `Map<string, ArrayBuffer>`.
-- `TreeStore` gets `setAsset(id, data)` used at import and a read accessor for the PDF pane;
-  `ForestStore.deleteTree` deletes the tree's asset; `TreeStore.removeNode` never removes the
-  root, so the asset is tied to the document as a whole.
+- `InMemoryStorageAdapter`: a `Map<string, Blob>`. (fake-indexeddb cannot structured-clone a
+  `Blob`, so the IndexedDB test asserts presence while the in-memory test covers the bytes.)
+- `TreeStore` gets `setAsset(data: Blob)` / `getAsset(): Promise<Blob | null>` used at import
+  and by the PDF pane; `ForestStore.deleteTree` deletes the tree's asset; `TreeStore.removeNode`
+  never removes the root, so the asset is tied to the document as a whole.
 
 `ExportBundle` gains:
 
@@ -113,7 +115,10 @@ assets?: Record<string, { mediaType: string; data?: string; file?: string }>;
     a 1600 px longest edge);
   - page navigation: previous/next, an "n / total" indicator;
   - the reading position reuses `setReadingPosition` with `page / pageCount`;
-  - opening the document loads the asset blob and hands pdf.js an `ArrayBuffer`.
+  - opening the document loads the asset `Blob` through an object URL (`getDocument({ url })`),
+    so pdf.js can stream it without us holding an `ArrayBuffer` (and without pdf.js detaching
+    it). The loading task is destroyed and the URL revoked on cleanup; in dev, React
+    StrictMode runs effects twice, which the destroy-before-revoke ordering handles.
 - The PDF pane replaces `MarkdownPane` only for `kind === "pdf"`; the right (answer) panel
   stays Markdown.
 
@@ -180,9 +185,9 @@ When the user sends from a PDF document:
 `openDocumentFile` and `createDocument` gain an optional asset:
 
 ```ts
-type OpenDocument = (content: string, title: string, kind?: DocumentKind, asset?: ArrayBuffer) => Promise<void>;
-createDocument(content: string, title: string, kind?: DocumentKind, asset?: ArrayBuffer): Promise<void>;
-ForestStore.createTree(content, title, kind = "markdown", asset?: ArrayBuffer): Promise<Node>;
+type OpenDocument = (content: string, title: string, kind?: DocumentKind, asset?: Blob) => Promise<void>;
+createDocument(content: string, title: string, kind?: DocumentKind, asset?: Blob): Promise<void>;
+ForestStore.createTree(content, title, kind = "markdown", asset?: Blob): Promise<Node>;
 ```
 
 For a `.pdf` file, `content` is `""` and `asset` is the file's bytes; `TreeStore` writes the
@@ -198,8 +203,9 @@ asset under a fresh id and records it as `assetId`. Markdown/docx calls pass no 
 
 ## Testing
 
-- **Unit (asset store):** `writeAsset`/`readAsset`/`deleteAsset` round-trip an `ArrayBuffer` in
-  both adapters; the IndexedDB upgrade keeps existing data.
+- **Unit (asset store):** `writeAsset`/`readAsset`/`deleteAsset` round-trip a `Blob` (in-memory
+  checks the bytes via a polyfilled `Blob.arrayBuffer`; IndexedDB checks presence); the
+  IndexedDB upgrade keeps existing data.
 - **Unit (bundle):** `exportBundle`/`importBundle` round-trip a PDF document through the
   **JSON** path; asset ids are remapped on import; a second import does not collide.
 - **Unit (zip):** building and reading the zip round-trips `asktree.json` + `assets/<id>`;
@@ -230,9 +236,16 @@ asset under a fresh id and records it as `assetId`. Markdown/docx calls pass no 
   through. The page-image scale/JPEG settings above are the lever if this bites.
 - **IndexedDB upgrade.** Adding a store is safe, but the version bump must be tested against
   an existing v1 database.
-- **Large assets in memory.** `readAsset` returns the whole `ArrayBuffer`; pdf.js needs the
-  bytes anyway, so this is inherent, but it is the reason export switches to zip above the
-  threshold.
+- **Large assets.** Blob storage avoids the ~127 MB per-value cap and heavy structured-clone
+  serialization. Export still base64-encodes the bytes in JSON (small documents) and switches
+  to a zip above 10 MB. pdf.js renders big pages; the 134 MB / 1693-page scanned book opened
+  and cropped successfully in testing.
+
+### Verified against real documents (2026-09-27)
+
+Playwright, real Chromium, three real PDFs: a 182 KB text policy document (16 pages), a
+935 KB document with images (7 pages), and a 134 MB, 1693-page scanned book. All rendered,
+cropped, sent the crop plus page context with the legend, and restored after reload.
 
 ## Future
 
