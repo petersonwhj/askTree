@@ -1,10 +1,10 @@
-**▶ [打开网页版](https://petersonwhj.github.io/askTree/)** —— 纯前端应用,完全在浏览器里运行;点击即可使用,无需安装、无需账号。
-
 [English](README.md) | **简体中文**
 
 # AskTree
 
 **把任何一篇文章,变成一棵可以不断追问的问题树。**
+
+**立即试用 →** [**网页版**](https://petersonwhj.github.io/askTree/) · [**Chrome 扩展**](https://github.com/petersonwhj/askTree/releases/latest) —— 纯前端,打开即用,无需安装、无需账号。
 
 AskTree 是一个本地优先的学习工具。载入一篇 Markdown、Word 或 PDF 文档:划出看不懂的那句话、在 PDF 上框出一块、或贴一张图片 —— 然后提问。答案会变成一页新的内容 —— 你可以在它里面继续划词、继续追问。每一条分支都是一条追问的线索,这棵树能长多深,取决于你的好奇心。
 

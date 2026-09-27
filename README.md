@@ -1,10 +1,10 @@
-**▶ [Open the web app](https://petersonwhj.github.io/askTree/)** — pure front-end, runs entirely in your browser. Click and use it; nothing to install, no account.
-
 **English** | [简体中文](README.zh-CN.md)
 
 # AskTree
 
 **Turn any article into a tree of questions you can actually explore.**
+
+**Try it now →** [**Web app**](https://petersonwhj.github.io/askTree/) · [**Chrome extension**](https://github.com/petersonwhj/askTree/releases/latest) — pure front-end, nothing to install, no account.
 
 AskTree is a local-first study tool. Load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
 
