@@ -57,6 +57,8 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   const [pageDraft, setPageDraft] = useState("1");
   const [zoom, setZoom] = useState(1);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pageWarning, setPageWarning] = useState<string | null>(null);
 
   const fitScale = useCallback(
     (baseWidth: number, baseHeight: number) =>
@@ -71,7 +73,29 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     const viewport = pdfPage.getViewport({ scale });
     target.width = viewport.width;
     target.height = viewport.height;
-    await pdfPage.render({ canvas: target, viewport }).promise;
+
+    // pdf.js reports images it cannot decode through its warning logger and then
+    // renders the page without them. Catch that here so the reader sees a notice
+    // instead of a page that silently looks blank.
+    const collected: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      collected.push(args.map((a) => String(a)).join(" "));
+      originalWarn(...args);
+    };
+    try {
+      await pdfPage.render({ canvas: target, viewport }).promise;
+    } finally {
+      console.warn = originalWarn;
+    }
+    const undecoded = collected.find((m) =>
+      /ignoring XObject|Jbig2|JPEG2000|OpenJPEG|unknown image|Cannot decode/i.test(m),
+    );
+    setPageWarning(
+      undecoded
+        ? "Part of this page uses an image format this app cannot decode, so it may look incomplete."
+        : null,
+    );
   }, [fitScale, zoom]);
 
   // Captured once: the load effect must not depend on the fraction, or navigating
@@ -103,7 +127,16 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
       );
       setPage(start);
     })().catch((e) => {
-      if (!cancelled) console.error("PDF LOAD FAILED", e);
+      if (cancelled) return;
+      console.error("PDF LOAD FAILED", e);
+      const name = (e as { name?: string }).name;
+      if (name === "PasswordException") {
+        setLoadError("This PDF is password-protected and cannot be opened.");
+      } else if (name === "InvalidPDFException") {
+        setLoadError("This file is not a valid PDF.");
+      } else {
+        setLoadError(`Could not open this PDF: ${(e as Error).message}`);
+      }
     });
     return () => {
       cancelled = true;
@@ -273,6 +306,8 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
           <button type="button" className="pdf-fit" onClick={() => setZoom(1)}>Fit width</button>
         </div>
       </div>
+      {loadError && <div className="pdf-error">{loadError}</div>}
+      {!loadError && pageWarning && <div className="pdf-warning">{pageWarning}</div>}
       <div className="pdf-canvas-wrap" onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
         <canvas ref={canvasRef} />
         {rect && rect.w >= MIN_CROP && rect.h >= MIN_CROP && (

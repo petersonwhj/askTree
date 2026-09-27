@@ -514,3 +514,7 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.5); white-space: nowrap;
 }
 .pdf-crop-ask:hover { background: #232340; }
+
+.pdf-error, .pdf-warning { padding: 8px 12px; font-size: 12px; }
+.pdf-error { background: #f8514920; color: #f85149; }
+.pdf-warning { background: #e2b71420; color: #e2b714; }

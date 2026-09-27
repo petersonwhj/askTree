@@ -113,12 +113,25 @@ assets?: Record<string, { mediaType: string; data?: string; file?: string }>;
 - New component `PdfPane` (left panel when the active document's `kind` is `"pdf"`):
   - renders the current page to a `<canvas>`, fitted to the pane width (scale ≈ 1.5 capped by
     a 1600 px longest edge);
-  - page navigation: previous/next, an "n / total" indicator;
+  - page navigation: previous/next, an editable page number (type + Enter to jump), a
+    zoom out/in control with a percentage, and a **Fit width** reset (zoom 1 = the default
+    fit-to-width scale); zoom is clamped to 25%–600% and the canvas to 6000 px;
   - the reading position reuses `setReadingPosition` with `page / pageCount`;
   - opening the document loads the asset `Blob` through an object URL (`getDocument({ url })`),
     so pdf.js can stream it without us holding an `ArrayBuffer` (and without pdf.js detaching
     it). The loading task is destroyed and the URL revoked on cleanup; in dev, React
     StrictMode runs effects twice, which the destroy-before-revoke ordering handles.
+  - pdf.js runtime assets (WASM decoders, CMaps, standard fonts) are staged into
+    `public/pdfjs` by `apps/web/scripts/copy-pdfjs-assets.mjs`, which runs from the web
+    package's `dev` and `build` scripts. They are **not committed**: the source tree ignores
+    `public/pdfjs/`, while Vite copies `public/` into `dist/`, so the published build (and
+    `pnpm deploy`) contains them. They come from the pinned `pdfjs-dist` dependency, so
+    regenerating avoids duplicating ~4 MB of third-party binaries.
+  - **Notices instead of silent blanks:** if the document cannot be opened
+    (`PasswordException` → "password-protected", `InvalidPDFException` → "not a valid PDF",
+    otherwise the message), the pane shows a `.pdf-error` banner. If pdf.js reports an image
+    it could not decode while rendering the current page (e.g. a missing decoder), a
+    `.pdf-warning` banner explains that the page may look incomplete.
 - The PDF pane replaces `MarkdownPane` only for `kind === "pdf"`; the right (answer) panel
   stays Markdown.
 
@@ -244,8 +257,12 @@ asset under a fresh id and records it as `assetId`. Markdown/docx calls pass no 
 ### Verified against real documents (2026-09-27)
 
 Playwright, real Chromium, three real PDFs: a 182 KB text policy document (16 pages), a
-935 KB document with images (7 pages), and a 134 MB, 1693-page scanned book. All rendered,
-cropped, sent the crop plus page context with the legend, and restored after reload.
+935 KB document with images (7 pages), and a 134 MB, 1693-page **JBIG2-encoded scanned
+book**. All render, crop, send the crop plus page context with the legend, and restore after
+reload. The scanned book initially rendered many pages blank because the JBIG2 decoder was
+missing; after staging the pdf.js WASM assets, those pages render (verified by sampling
+canvas pixels and by zero remaining JBIG2 warnings). Page jump and zoom were also verified
+against the scanned book.
 
 ## Future
 

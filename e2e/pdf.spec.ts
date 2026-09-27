@@ -62,3 +62,16 @@ test("opens a PDF, crops a region, asks with page context, and keeps it after re
   await page.locator(".tree-node", { hasText: "what does this say?" }).click();
   await expect(page.locator(".node-image")).toHaveCount(1);
 });
+
+test("warns instead of showing a blank pane when the file is not a valid PDF", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('header input[accept=".md,.markdown,.txt,.docx,.pdf"]').setInputFiles({
+    name: "broken.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("this is definitely not a pdf"),
+  });
+
+  await expect(page.locator(".doc-row .doc-kind")).toHaveText("pdf");
+  await expect(page.locator(".pdf-error")).toBeVisible();
+  await expect(page.locator(".pdf-error")).toContainText("not a valid PDF");
+});
