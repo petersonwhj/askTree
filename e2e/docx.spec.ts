@@ -6,7 +6,7 @@ const FIXTURE = resolve(__dirname, "../apps/web/src/lib/__tests__/fixtures/sampl
 test("opens a .docx as a markdown document", async ({ page }) => {
   await page.goto("/");
   await page
-    .locator('header input[accept=".md,.markdown,.txt,.docx"]')
+    .locator('header input[accept=".md,.markdown,.txt,.docx,.pdf"]')
     .setInputFiles(FIXTURE);
 
   await expect(page.locator(".doc-row")).toHaveCount(1);

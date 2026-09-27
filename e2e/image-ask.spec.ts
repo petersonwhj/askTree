@@ -30,7 +30,7 @@ test("sends an attached image and keeps it after reload", async ({ page }) => {
 
   await page.goto("/");
   await page
-    .locator('header input[accept=".md,.markdown,.txt,.docx"]')
+    .locator('header input[accept=".md,.markdown,.txt,.docx,.pdf"]')
     .setInputFiles({ name: "article.md", mimeType: "text/markdown", buffer: Buffer.from("# A\n\nbody") });
 
   await page.locator('input[type="file"][accept="image/*"]').setInputFiles({

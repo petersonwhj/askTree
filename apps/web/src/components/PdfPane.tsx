@@ -61,22 +61,28 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     await pdfPage.render({ canvas: target, viewport }).promise;
   }, [scaleFor]);
 
+  // Captured once: the load effect must not depend on the fraction, or navigating
+  // (which persists a new fraction) would reload the document.
+  const initialFractionRef = useRef(initialFraction);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const doc = await pdfjs.getDocument({ data: asset }).promise;
+      // pdf.js takes ownership of the buffer it is given (transfers it to the
+      // worker), so hand it a copy; otherwise our prop is detached for good.
+      const doc = await pdfjs.getDocument({ data: asset.slice(0) }).promise;
       if (cancelled) return;
       docRef.current = doc;
       pageImageCache.current.clear();
       setTotal(doc.numPages);
       const start = Math.min(
         doc.numPages,
-        Math.max(1, Math.round(initialFraction * doc.numPages) || 1),
+        Math.max(1, Math.round(initialFractionRef.current * doc.numPages) || 1),
       );
       setPage(start);
-    })();
+    })().catch((e) => console.error("PDF LOAD FAILED", e));
     return () => { cancelled = true; };
-  }, [asset, initialFraction]);
+  }, [asset]);
 
   // Keep the callback in a ref so a new function identity each render does not
   // re-trigger the render effect.
@@ -213,7 +219,8 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
               type="button"
               className="pdf-crop-ask"
               style={{ left: rect.x, top: rect.y + rect.h + 6 }}
-              onClick={() => void confirmCrop()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { confirmCrop().catch((e) => console.error("CROP FAILED", e)); }}
             >
               Ask about this
             </button>
