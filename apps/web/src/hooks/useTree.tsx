@@ -20,7 +20,7 @@ interface TreeContextValue {
   trees: TreeSummary[];
   activeTreeId: string | null;
   setActiveTree: (id: string | null) => Promise<void>;
-  createDocument: (content: string, title: string, kind?: DocumentKind) => Promise<void>;
+  createDocument: (content: string, title: string, kind?: DocumentKind, asset?: Blob) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   renameDocument: (id: string, title: string) => Promise<void>;
   exportDocument: (id: string) => Promise<ExportBundle | null>;
@@ -133,10 +133,15 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
     refresh(forest);
   }, [refresh]);
 
-  const createDocument = useCallback(async (content: string, title: string, kind?: DocumentKind) => {
+  const createDocument = useCallback(async (
+    content: string,
+    title: string,
+    kind?: DocumentKind,
+    asset?: Blob,
+  ) => {
     const forest = forestRef.current;
     if (!forest) return;
-    await forest.createTree(content, title, kind);
+    await forest.createTree(content, title, kind, asset);
     setSelectedText(null);
     refresh(forest);
   }, [refresh]);

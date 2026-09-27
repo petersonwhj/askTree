@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderPrompt } from "@asktree/core";
+import { renderPrompt, buildImageLegend, assemblePdfImages } from "@asktree/core";
 import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 
 describe("renderPrompt", () => {
@@ -76,5 +76,55 @@ describe("renderPrompt", () => {
       DEFAULT_PROMPT_CONFIG.template
     );
     expect(result.user).toContain("(This is my first question on this article — no earlier trail yet.)");
+  });
+});
+
+describe("buildImageLegend", () => {
+  it("names the crop as the selected region and numbers the pages", () => {
+    const legend = buildImageLegend([
+      { role: "crop" },
+      { role: "page", page: 3 },
+      { role: "page", page: 2 },
+      { role: "page", page: 4 },
+    ]);
+    expect(legend).toContain("1. Selected region");
+    expect(legend).toContain("2. Page 3");
+    expect(legend).toContain("3. Page 2");
+    expect(legend).toContain("4. Page 4");
+    expect(legend).toContain("image 1");
+  });
+
+  it("omits the selected-region wording when there is no crop", () => {
+    const legend = buildImageLegend([{ role: "attachment" }, { role: "page", page: 1 }]);
+    expect(legend).not.toContain("Selected region");
+    expect(legend).toContain("1. Attached image");
+    expect(legend).toContain("2. Page 1");
+  });
+});
+
+describe("assemblePdfImages", () => {
+  it("orders crop, then attachments, then pages", () => {
+    const crop = { mediaType: "image/png", data: "C" };
+    const att = { mediaType: "image/png", data: "A" };
+    const { images, legendItems } = assemblePdfImages({
+      crop,
+      attachments: [att],
+      contextPages: [3, 2, 4],
+    });
+    expect(images.map((i) => i.data)).toEqual(["C", "A"]);
+    expect(legendItems.map((i) => i.role)).toEqual(["crop", "attachment", "page", "page", "page"]);
+  });
+
+  it("includes the page renders that go with the page numbers", () => {
+    const crop = { mediaType: "image/png", data: "C" };
+    const page3 = { mediaType: "image/jpeg", data: "P3" };
+    const page2 = { mediaType: "image/jpeg", data: "P2" };
+    const { images, legendItems } = assemblePdfImages({
+      crop,
+      contextPages: [3, 2],
+      contextImages: [page3, page2],
+    });
+    expect(images.map((i) => i.data)).toEqual(["C", "P3", "P2"]);
+    expect(legendItems.map((i) => i.role)).toEqual(["crop", "page", "page"]);
   });
 });

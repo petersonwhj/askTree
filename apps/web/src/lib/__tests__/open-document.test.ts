@@ -36,4 +36,16 @@ describe("openDocumentFile", () => {
       openDocumentFile(new File(["x"], "photo.png"), vi.fn()),
     ).rejects.toThrow('Unsupported file "photo.png"');
   });
+
+  it("opens a .pdf passing the file itself as the asset", async () => {
+    const create = vi.fn();
+    const file = new File(["pdf"], "paper.pdf", { type: "application/pdf" });
+
+    await openDocumentFile(file, create);
+    const [content, title, kind, asset] = create.mock.calls[0];
+    expect(content).toBe("");
+    expect(title).toBe("paper");
+    expect(kind).toBe("pdf");
+    expect(asset).toBe(file);
+  });
 });

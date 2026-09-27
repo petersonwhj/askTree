@@ -1,14 +1,15 @@
-export type { Node, Edge, TreeJSON, ExportBundle, LLMConfig, ContextSlice, AskOptions, PromptConfig, ForestIndex, TreeSummary, DocumentKind, AskImage } from "./types";
-export { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE } from "./types";
+export type { Node, Edge, TreeJSON, ExportBundle, AssetEntry, LLMConfig, ContextSlice, AskOptions, PromptConfig, ForestIndex, TreeSummary, DocumentKind, AskImage } from "./types";
+export { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE, PDF_TEMPLATE } from "./types";
 
 export type { StorageAdapter } from "./storage-adapter";
 export { InMemoryStorageAdapter } from "./storage-adapter";
 
 export { TreeStore } from "./tree-store";
 export { ForestStore } from "./forest-store";
+export { arrayBufferToBase64, base64ToArrayBuffer } from "./base64";
 
-export { collectContext, renderPrompt, parseSuggestedQuestions } from "./prompt";
-export type { SelectionInfo } from "./prompt";
+export { collectContext, renderPrompt, parseSuggestedQuestions, buildImageLegend, assemblePdfImages } from "./prompt";
+export type { SelectionInfo, ImageLegendItem } from "./prompt";
 
 export { LLMService } from "./llm-service";
 export type { LLMProvider } from "./llm-service";

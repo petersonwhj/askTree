@@ -1,4 +1,4 @@
-import { DEFAULT_PROMPT_CONFIG, type PromptConfig, type ContextSlice } from "./types";
+import { DEFAULT_PROMPT_CONFIG, type PromptConfig, type ContextSlice, type AskImage } from "./types";
 import type { TreeStore } from "./tree-store";
 
 function cutSurrounding(content: string, startPos: number, endPos: number, radius: number): string {
@@ -159,4 +159,50 @@ export function renderPrompt(
   const system = text.slice(0, delim).replace(/^System:\s*/, "").trim();
   const user = text.slice(delim + "User:".length).trim();
   return { system, user };
+}
+
+export type ImageLegendItem = { role: "crop" | "attachment" | "page"; page?: number };
+
+/** Deterministic description of the images attached to a request. Never user-editable. */
+export function buildImageLegend(items: ImageLegendItem[]): string {
+  const lines = items.map((item, i) => {
+    const n = i + 1;
+    if (item.role === "crop") {
+      return `${n}. Selected region — the learner cropped this from the document (this is what the question is about).`;
+    }
+    if (item.role === "page") {
+      return `${n}. Page ${item.page} — background only.`;
+    }
+    return `${n}. Attached image.`;
+  });
+  const header = "Attached images, in order:";
+  const footer = items.some((i) => i.role === "crop")
+    ? "The question refers to image 1; the other images are background only."
+    : "The question refers to the attached images.";
+  return [header, ...lines, footer].join("\n");
+}
+
+export function assemblePdfImages(input: {
+  crop?: AskImage;
+  attachments?: AskImage[];
+  contextPages: number[];
+  /** Page renders, aligned index-for-index with `contextPages`. */
+  contextImages?: AskImage[];
+}): { images: AskImage[]; legendItems: ImageLegendItem[] } {
+  const items: ImageLegendItem[] = [];
+  const images: AskImage[] = [];
+  if (input.crop) {
+    images.push(input.crop);
+    items.push({ role: "crop" });
+  }
+  for (const attachment of input.attachments ?? []) {
+    images.push(attachment);
+    items.push({ role: "attachment" });
+  }
+  input.contextPages.forEach((page, index) => {
+    items.push({ role: "page", page });
+    const pageImage = input.contextImages?.[index];
+    if (pageImage) images.push(pageImage);
+  });
+  return { images, legendItems: items };
 }

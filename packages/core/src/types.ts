@@ -15,6 +15,10 @@ export interface Edge {
   question: string;
   /** Images attached to this question, when the ask was multimodal. */
   images?: AskImage[];
+  /** The PDF region this question was asked about. */
+  crop?: AskImage;
+  /** Page numbers whose images were sent (current, -1, +1). */
+  contextPages?: number[];
 }
 
 export interface Node {
@@ -33,6 +37,8 @@ export interface TreeJSON {
   version: number;
   /** Source format of the document. Absent means "markdown". */
   kind?: DocumentKind;
+  /** Id of the document's source asset (e.g. the PDF). Absent for markdown/docx. */
+  assetId?: string;
   rootNodeId: string;
   nodes: Record<string, Node>;
   createdAt: number;
@@ -41,10 +47,19 @@ export interface TreeJSON {
   readingPositions?: Record<string, number>;
 }
 
+export interface AssetEntry {
+  mediaType: string;
+  /** base64, for JSON exports */
+  data?: string;
+  /** entry name inside a zip, for zip exports */
+  file?: string;
+}
+
 export interface ExportBundle {
   version: 1;
   tree: TreeJSON;
   contents: Record<string, string>;
+  assets?: Record<string, AssetEntry>;
 }
 
 export interface ForestIndex {
@@ -90,12 +105,21 @@ export interface AskOptions {
   images?: AskImage[];
 }
 
+export const PDF_TEMPLATE = `System: You are a study assistant helping a learner read a document they have shared as images. The first attached image is the region they selected; later images are full pages for context. Answer the question about the selected region, using the page images only as background. Be clear and concise, and reply in the same language as the question.
+
+User:
+The learner selected a region of a document and asks:
+
+{user_question}`;
+
 export interface PromptConfig {
   maxDepth: number;
   contextRadius: number[];
   template: string;
   /** Template for the "help me ask" suggested-questions feature. */
   suggestTemplate?: string;
+  /** Template used when the document is a PDF (image-based). */
+  pdfTemplate?: string;
 }
 
 /**
@@ -141,4 +165,5 @@ Within that passage I highlighted "{selected_text}".
 
 {user_question}`,
   suggestTemplate: SUGGEST_TEMPLATE,
+  pdfTemplate: PDF_TEMPLATE,
 };

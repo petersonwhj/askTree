@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTree } from "../hooks/useTree";
-import { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE } from "@asktree/core";
+import { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE, PDF_TEMPLATE } from "@asktree/core";
 
 type Provider = "ollama" | "openai" | "anthropic";
 
@@ -104,6 +104,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [maxDepth, setMaxDepth] = useState(promptConfig.maxDepth);
   const [contextRadius, setContextRadius] = useState(promptConfig.contextRadius.join(", "));
   const [template, setTemplate] = useState(promptConfig.template);
+  const [pdfTemplate, setPdfTemplate] = useState(
+    promptConfig.pdfTemplate ?? PDF_TEMPLATE,
+  );
   const [suggestTemplate, setSuggestTemplate] = useState(
     promptConfig.suggestTemplate ?? SUGGEST_TEMPLATE,
   );
@@ -165,6 +168,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       contextRadius: contextRadius.split(",").map((s) => parseInt(s.trim()) || 0),
       template,
       suggestTemplate,
+      pdfTemplate,
     });
     setShowExplored?.(exploredDraft);
     onClose();
@@ -174,6 +178,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setMaxDepth(DEFAULT_PROMPT_CONFIG.maxDepth);
     setContextRadius(DEFAULT_PROMPT_CONFIG.contextRadius.join(", "));
     setTemplate(DEFAULT_PROMPT_CONFIG.template);
+    setPdfTemplate(DEFAULT_PROMPT_CONFIG.pdfTemplate ?? PDF_TEMPLATE);
     setSuggestTemplate(DEFAULT_PROMPT_CONFIG.suggestTemplate ?? SUGGEST_TEMPLATE);
     setExploredDraft(true);
   };
@@ -291,6 +296,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setTemplate(e.target.value)}
         />
 
+        <label>PDF / Image Prompt Template</label>
+        <textarea
+          aria-label="PDF Prompt Template"
+          value={pdfTemplate}
+          onChange={(e) => setPdfTemplate(e.target.value)}
+        />
         <label>Suggested Questions Template</label>
         <textarea
           aria-label="Suggested Questions Template"

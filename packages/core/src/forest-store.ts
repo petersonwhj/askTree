@@ -1,4 +1,5 @@
 import type { Node, TreeJSON, ExportBundle, ForestIndex, TreeSummary, DocumentKind } from "./types";
+import { base64ToArrayBuffer } from "./base64";
 import type { StorageAdapter } from "./storage-adapter";
 import { TreeStore } from "./tree-store";
 
@@ -64,10 +65,16 @@ export class ForestStore {
     await this.persistIndex({ trees: this.index.trees, activeTreeId: id });
   }
 
-  async createTree(content: string, title: string, kind: DocumentKind = "markdown"): Promise<Node> {
+  async createTree(
+    content: string,
+    title: string,
+    kind: DocumentKind = "markdown",
+    asset?: Blob,
+  ): Promise<Node> {
     const treeId = crypto.randomUUID();
     const store = new TreeStore(this.adapter, treeId, kind);
     const root = await store.createTree(content, title);
+    if (asset) await store.setAsset(asset);
     this.trees.set(treeId, store);
     await this.persistIndex({
       trees: [...this.index.trees, treeId],
@@ -83,6 +90,8 @@ export class ForestStore {
   async deleteTree(id: string): Promise<void> {
     const store = this.trees.get(id);
     if (!store) return;
+    const assetId = store.assetId;
+    if (assetId) await this.adapter.deleteAsset(assetId).catch(() => {});
     for (const node of store.getAllNodes()) {
       await this.adapter.deleteNodeContent(node.id).catch(() => {});
     }
@@ -142,6 +151,17 @@ export class ForestStore {
       updatedAt: Date.now(),
       ...(Object.keys(readingPositions).length > 0 ? { readingPositions } : {}),
     };
+
+    const assetMap = new Map<string, string>();
+    for (const [oldId, entry] of Object.entries(bundle.assets ?? {})) {
+      if (!entry.data) continue;
+      const newId = crypto.randomUUID();
+      await this.adapter.writeAsset(newId, new Blob([base64ToArrayBuffer(entry.data)]));
+      assetMap.set(oldId, newId);
+    }
+    if (bundle.tree.assetId && assetMap.has(bundle.tree.assetId)) {
+      json.assetId = assetMap.get(bundle.tree.assetId);
+    }
 
     const treeId = crypto.randomUUID();
     await this.adapter.writeTreeMeta(treeId, json);

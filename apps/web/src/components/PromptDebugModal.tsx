@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTree } from "../hooks/useTree";
-import { collectContext, renderPrompt, SUGGEST_TEMPLATE } from "@asktree/core";
+import { collectContext, renderPrompt, SUGGEST_TEMPLATE, buildImageLegend, assemblePdfImages, PDF_TEMPLATE } from "@asktree/core";
 
 interface Props {
   nodeId: string;
@@ -67,7 +67,7 @@ export function PromptDebugModal({
           ? { start: edge.startPos, end: edge.endPos, text: edge.selectedText }
           : null;
 
-        setImageCount(edge?.images?.length ?? 0);
+        setImageCount((edge?.crop ? 1 : 0) + (edge?.images?.length ?? 0));
 
         // Determine the question from the node's title (which is the question text)
         const q = edge?.question || node.title;
@@ -80,9 +80,20 @@ export function PromptDebugModal({
           store,
           promptConfig,
         );
-        const rendered = renderPrompt(slices, q, promptConfig.template);
+        const isPdf = store.kind === "pdf";
+        const rendered = renderPrompt(
+          slices,
+          q,
+          isPdf ? promptConfig.pdfTemplate ?? PDF_TEMPLATE : promptConfig.template,
+        );
+        const { legendItems } = assemblePdfImages({
+          crop: edge?.crop,
+          attachments: edge?.images,
+          contextPages: edge?.contextPages ?? [],
+        });
+        const legend = legendItems.length > 0 ? buildImageLegend(legendItems) : "";
         setSystem(rendered.system);
-        setUser(rendered.user);
+        setUser(legend ? `${rendered.user}\n\n${legend}` : rendered.user);
       } catch (e) {
         setSystem("Error: " + (e as Error).message);
         setUser("");

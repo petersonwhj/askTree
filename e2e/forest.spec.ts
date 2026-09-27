@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const mdInput = (page: Page) => page.locator('header input[accept=".md,.markdown,.txt,.docx"]');
+const mdInput = (page: Page) => page.locator('header input[accept=".md,.markdown,.txt,.docx,.pdf"]');
 
 async function openDoc(page: Page, name: string, body: string) {
   await mdInput(page).setInputFiles({
@@ -68,7 +68,7 @@ test("exports the active document and imports it as a new one", async ({ page })
   const path = await download.path();
   expect(path).toBeTruthy();
 
-  await page.locator('header input[accept=".json"]').setInputFiles(path!);
+  await page.locator('header input[accept=".json,.zip"]').setInputFiles(path!);
   await expect(page.locator(".doc-row")).toHaveCount(2);
 });
 

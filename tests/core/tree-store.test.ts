@@ -225,6 +225,18 @@ describe("TreeStore", () => {
     });
   });
 
+  describe("asset", () => {
+    it("stores an asset and references it from the tree", async () => {
+      await store.createTree("", "Doc");
+      const id = await store.setAsset(new Blob([new Uint8Array([1, 2, 3])]));
+      expect(store.assetId).toBe(id);
+      expect((await store.getAsset())?.size).toBe(3);
+
+      const restored = await TreeStore.deserialize(store.serialize(), adapter, "tree-2");
+      expect(restored.assetId).toBe(id);
+    });
+  });
+
   describe("edge images", () => {
     it("stores images on the edge and round-trips them", async () => {
       const root = await store.createTree("r", "Root");

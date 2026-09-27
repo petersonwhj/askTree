@@ -322,4 +322,20 @@ describe("DualPanel panel actions and free-ask target", () => {
     fireEvent.click(container.querySelector(".node-image")!);
     await waitFor(() => expect(document.querySelector(".image-lightbox-overlay")).toBeTruthy());
   });
+  it("renders a PDF-derived answer as Markdown, not the PDF viewer", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const pdfStore = new TreeStore(adapter, "pdf-tree", "pdf");
+    const root = await pdfStore.createTree("", "Paper");
+    await pdfStore.setAsset(new Blob([new Uint8Array([1, 2])]));
+    const child = await pdfStore.addChild(
+      root.id,
+      { selectedText: "", startPos: 0, endPos: 0, question: "这是什么?" },
+      "# 答案标题\n\n这是答案正文。",
+    );
+    mocks.ctx = { ...mocks.ctx, store: pdfStore, activePath: [pdfStore.getNode(child.id)!] };
+
+    const { container } = render(<DualPanel />);
+    await waitFor(() => expect(container.querySelector(".pdf-pane")).toBeNull());
+    expect(await screen.findByText(/这是答案正文/)).toBeTruthy();
+  });
 });

@@ -153,6 +153,36 @@ describe("ForestStore import / export", () => {
   });
 });
 
+describe("ForestStore assets", () => {
+  it("stores an asset with a new document and deletes it with the tree", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    const assetId = await forest
+      .createTree("", "Paper", "pdf", new Blob([new Uint8Array([5, 5])]))
+      .then(() => forest.getActiveTree()!.assetId!);
+    expect((await adapter.readAsset(assetId))?.size).toBe(2);
+
+    await forest.deleteTree(forest.listTrees()[0].id);
+    expect(await adapter.readAsset(assetId)).toBeNull();
+  });
+
+  it("round-trips an asset through export and import with a new id", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    await forest.createTree("", "Paper", "pdf", new Blob([new Uint8Array([7, 7, 7])]));
+    const oldId = forest.getActiveTree()!.assetId!;
+
+    const bundle = await forest.exportTree(forest.listTrees()[0].id);
+    expect(bundle.assets?.[oldId]?.data).toBeTruthy();
+
+    const newTreeId = await forest.importBundle(bundle);
+    const imported = forest.getTree(newTreeId);
+    expect(imported.assetId).toBeTruthy();
+    expect(imported.assetId).not.toBe(oldId);
+    expect((await imported.getAsset())?.size).toBe(3);
+  });
+});
+
 describe("ForestStore kind", () => {
   it("defaults new documents to markdown", async () => {
     const adapter = new InMemoryStorageAdapter();
