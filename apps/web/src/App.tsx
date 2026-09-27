@@ -5,6 +5,7 @@ import { TreeSidebar } from "./components/TreeSidebar";
 import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { DualPanel } from "./components/DualPanel";
 import { LoadNotice } from "./components/LoadNotice";
+import { ClipBridge } from "./extension/ClipBridge";
 import { SettingsModal } from "./components/SettingsModal";
 import "./App.css";
 
@@ -87,6 +88,7 @@ export default function App() {
     <ErrorBoundary>
       <TreeProvider>
         <AppContent />
+        <ClipBridge />
       </TreeProvider>
     </ErrorBoundary>
   );
