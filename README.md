@@ -4,7 +4,7 @@
 
 **Turn any article into a tree of questions you can actually explore.**
 
-AskTree is a local-first study tool. Load a Markdown or Word document, highlight the sentence you don't understand, and ask — or paste an image and ask about that. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
+AskTree is a local-first study tool. Load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
 
 No server, no account, no analytics. Articles, answers and the tree live in your browser (IndexedDB), and you choose which LLM to use.
 
@@ -28,12 +28,17 @@ Mark a page `resolved` when it clicks. The sidebar becomes a map of your own lea
 **Keep many documents at once**
 - The sidebar is a forest: one row per document, each expandable. Switch, rename, export or delete a document; every answer and reading position stays with its own document.
 
-**Bring Markdown or Word**
-- Open `.md`, `.markdown`, `.txt` or `.docx`. Word documents are converted to Markdown on import (headings, lists, tables, embedded images) and then work like any other document.
+**Bring Markdown, Word or PDF**
+- Open `.md`, `.markdown`, `.txt`, `.docx` or `.pdf`. Word documents are converted to Markdown on import (headings, lists, tables, embedded images) and then work like any other document.
 
 **Ask about an image**
 - Paste an image (Ctrl+V) or attach files in the ask bar, then ask. The image is sent to a vision-capable model and saved with the answer, so it is still there when you come back.
 - Click any thumbnail — in the ask bar or on an answer page — for a full-size preview.
+
+**Read PDFs and ask about a region**
+- Page through a PDF: jump to a page by number, zoom out/in, or fit the width.
+- Drag a box over anything on a page and click **Ask about this**. The crop is sent to a vision-capable model together with the current page and its neighbours, so the answer can use the surrounding context.
+- The crop is saved with the answer. PDFs are kept in your browser and included when you export: a document exports as JSON, or as a `.zip` when it is larger than 10 MB. Scanned PDFs (including JBIG2) render, and a page that cannot be decoded says so instead of looking blank.
 
 **Ask against the text**
 - Select any passage → click the floating button → the LLM answers it as a new child page.
@@ -109,7 +114,7 @@ Switching providers is a draft — nothing is written until you press **Save**; 
 
 ## How to use
 
-1. **Start a tree** — paste Markdown and click *Start Learning*, use the 📂 button to open a `.md` or `.docx` file, or drag & drop one. A sample article ships at `apps/web/public/samples/gemini-sample.md`.
+1. **Start a tree** — paste Markdown and click *Start Learning*, use the 📂 button to open a `.md`, `.docx` or `.pdf` file, or drag & drop one. A sample article ships at `apps/web/public/samples/gemini-sample.md`.
 2. **Ask** — select text, click the floating **Ask about "…"** button, type your question, press **Send** (Enter sends, Shift+Enter adds a line). To ask about a picture, attach it (paste with Ctrl+V, or **Attach** in the ask bar) first.
 3. **Drill in** — the answer opens on the right as a new node; select inside it for follow-ups.
 4. **Use the helpers** — 💡 for suggested questions, **?** next to a title for the exact prompt.
@@ -160,9 +165,9 @@ Builds the app and publishes `apps/web/dist` to the `gh-pages` branch. The app i
 ## Roadmap
 
 - [x] **Web** — pure-frontend app, GitHub Pages deployment
+- [x] **Imports** — Word (.docx) to Markdown, and PDFs (read in place, crop-to-ask); unreadable pages warn
 - [ ] **VS Code** — extension reusing `@asktree/core`
 - [ ] **Chrome** — browser clipping extension
-- [ ] **Imports** — DOCX / PDF with visible warnings
 
 ---
 
