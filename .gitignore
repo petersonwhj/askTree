@@ -5,3 +5,4 @@ dist/
 test-results/
 playwright-report/
 apps/web/public/pdfjs/
+apps/extension/dist-test/

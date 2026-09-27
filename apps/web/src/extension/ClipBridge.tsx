@@ -6,11 +6,11 @@ import { clipIdFromSearch, takePendingClip } from "./pending-clip";
 
 /** Consumes a pending clip when the app is opened by the extension. No-op in the web app. */
 export function ClipBridge() {
-  const { createDocument, setLoadNotice } = useTree();
+  const { createDocument, setLoadNotice, isLoading } = useTree();
 
   useEffect(() => {
     const chrome = getChrome();
-    if (!chrome) return;
+    if (!chrome || isLoading) return; // wait until the forest has loaded
     const id = clipIdFromSearch(window.location.search);
     if (!id) return;
 
@@ -32,7 +32,7 @@ export function ClipBridge() {
         setLoadNotice(clip.message);
       }
     })();
-  }, [createDocument, setLoadNotice]);
+  }, [createDocument, setLoadNotice, isLoading]);
 
   return null;
 }

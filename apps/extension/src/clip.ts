@@ -1,4 +1,4 @@
-import Defuddle from "defuddle";
+import Defuddle from "defuddle/full";
 
 export interface Clip {
   title: string;
@@ -41,6 +41,9 @@ export function formatClip(title: string, url: string, body: string, date = new 
  * `formatClip` above carries the unit coverage.
  */
 export function clipDocument(doc: Document, url: string): Clip | null {
-  const result = new Defuddle(doc, { url, markdown: true, separateMarkdown: true }).parse();
+  // `separateMarkdown` (without `markdown`) makes Defuddle put the Markdown in
+  // `contentMarkdown` while leaving `content` as HTML; passing `markdown` too
+  // would put it in `content` and leave `contentMarkdown` empty.
+  const result = new Defuddle(doc, { url, separateMarkdown: true }).parse();
   return formatClip(result.title || doc.title, url, result.contentMarkdown ?? "");
 }

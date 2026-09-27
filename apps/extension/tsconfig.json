@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["chrome"],
+    "types": ["chrome", "node"],
     "noEmit": true,
     "lib": ["ES2022", "DOM", "WebWorker"]
   },

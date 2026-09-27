@@ -94,8 +94,9 @@ apps/web/                           unchanged app; built twice (web, extension m
 ## Capture
 
 **Web pages (content script):** `Defuddle` extracts the main content and metadata and can emit
-Markdown itself (`new Defuddle(document, { url, markdown: true }).parse()` →
-`contentMarkdown`), so no separate HTML→Markdown step is needed here (Turndown stays for the
+Markdown itself, but only through its `full` entry: `new Defuddle(document, { url, separateMarkdown: true }).parse()`
+→ `contentMarkdown` (the default browser entry never runs the conversion; `markdown: true` would
+put it in `content` instead), so no separate HTML→Markdown step is needed here (Turndown stays for the
 Word import). Defuddle already falls back to the whole body when it finds no article content;
 if the content script cannot run at all (e.g. `chrome://`), the background treats that as a
 failure. The root title is `document.title` (falling back to the URL's host).
