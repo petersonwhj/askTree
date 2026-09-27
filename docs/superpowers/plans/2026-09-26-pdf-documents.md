@@ -880,6 +880,7 @@ const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.8;
 const CROP_MAX_ZOOM = 3;
 const CROP_MAX_EDGE = 2000;
+const PAGE_CACHE_MAX = 10;
 
 export interface PdfPaneHandle {
   renderContextImages(): Promise<{ images: AskImage[]; pages: number[] }>;
@@ -909,6 +910,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const docRef = useRef<Doc | null>(null);
+  const pageImageCache = useRef(new Map<number, AskImage>());
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(initialPage);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -936,6 +938,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
       const doc = await pdfjs.getDocument({ data: asset }).promise;
       if (cancelled) return;
       docRef.current = doc;
+      pageImageCache.current.clear();
       setTotal(doc.numPages);
       if (canvasRef.current) await renderPage(initialPage, doc, canvasRef.current);
     })();
@@ -951,14 +954,31 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   }, [page, total, renderPage, onPageChange]);
 
   const pageImage = useCallback(async (pageNumber: number, doc: Doc): Promise<AskImage> => {
-    const pdfPage = await doc.getPage(pageNumber);
-    const base = pdfPage.getViewport({ scale: 1 });
-    const viewport = pdfPage.getViewport({ scale: scaleFor(base) });
-    const canvas = pageCanvas(pdfPage, viewport.scale);
-    await pdfPage.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+    const cached = pageImageCache.current.get(pageNumber);
+    if (cached) return cached;
+
+    let canvas: HTMLCanvasElement;
+    if (pageNumber === page && canvasRef.current) {
+      canvas = canvasRef.current; // already rendered on screen
+    } else {
+      const pdfPage = await doc.getPage(pageNumber);
+      const base = pdfPage.getViewport({ scale: 1 });
+      const viewport = pdfPage.getViewport({ scale: scaleFor(base) });
+      canvas = pageCanvas(pdfPage, viewport.scale);
+      await pdfPage.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+    }
+
     const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-    return { mediaType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
-  }, [scaleFor]);
+    const image: AskImage = { mediaType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+
+    const cache = pageImageCache.current;
+    cache.set(pageNumber, image);
+    if (cache.size > PAGE_CACHE_MAX) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+    return image;
+  }, [scaleFor, page]);
 
   useImperativeHandle(ref, () => ({
     async renderContextImages() {
