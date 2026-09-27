@@ -33,6 +33,8 @@ export interface TreeJSON {
   version: number;
   /** Source format of the document. Absent means "markdown". */
   kind?: DocumentKind;
+  /** Id of the document's source asset (e.g. the PDF). Absent for markdown/docx. */
+  assetId?: string;
   rootNodeId: string;
   nodes: Record<string, Node>;
   createdAt: number;

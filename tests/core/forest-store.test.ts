@@ -153,6 +153,20 @@ describe("ForestStore import / export", () => {
   });
 });
 
+describe("ForestStore assets", () => {
+  it("stores an asset with a new document and deletes it with the tree", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const forest = await ForestStore.load(adapter);
+    const assetId = await forest
+      .createTree("", "Paper", "pdf", new Uint8Array([5, 5]).buffer)
+      .then(() => forest.getActiveTree()!.assetId!);
+    expect(new Uint8Array((await adapter.readAsset(assetId))!)).toEqual(new Uint8Array([5, 5]));
+
+    await forest.deleteTree(forest.listTrees()[0].id);
+    expect(await adapter.readAsset(assetId)).toBeNull();
+  });
+});
+
 describe("ForestStore kind", () => {
   it("defaults new documents to markdown", async () => {
     const adapter = new InMemoryStorageAdapter();

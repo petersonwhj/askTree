@@ -5,6 +5,7 @@ export class TreeStore {
   private rootNodeId: string | null = null;
   private nodes: Map<string, Node> = new Map();
   private readingPositions: Map<string, number> = new Map();
+  private currentAssetId: string | undefined;
 
   constructor(
     private adapter: StorageAdapter,
@@ -40,6 +41,23 @@ export class TreeStore {
   getRoot(): Node {
     if (!this.rootNodeId) throw new Error("No tree exists");
     return { ...this.nodes.get(this.rootNodeId)! };
+  }
+
+  get assetId(): string | undefined {
+    return this.currentAssetId;
+  }
+
+  /** Store a source asset (e.g. a PDF) and reference it from this tree. */
+  async setAsset(data: ArrayBuffer): Promise<string> {
+    const id = crypto.randomUUID();
+    await this.adapter.writeAsset(id, data);
+    this.currentAssetId = id;
+    await this.persist();
+    return id;
+  }
+
+  async getAsset(): Promise<ArrayBuffer | null> {
+    return this.currentAssetId ? this.adapter.readAsset(this.currentAssetId) : null;
   }
 
   async renameRoot(title: string): Promise<void> {
@@ -180,6 +198,7 @@ export class TreeStore {
     return {
       version: 1,
       kind: this.kind,
+      ...(this.currentAssetId ? { assetId: this.currentAssetId } : {}),
       rootNodeId: this.rootNodeId,
       nodes: nodesObj,
       createdAt: rootNode?.createdAt ?? Date.now(),
@@ -196,6 +215,7 @@ export class TreeStore {
     treeId: string = crypto.randomUUID(),
   ): Promise<TreeStore> {
     const store = new TreeStore(adapter, treeId, json.kind ?? "markdown");
+    store.currentAssetId = json.assetId;
     for (const [id, node] of Object.entries(json.nodes)) {
       store.nodes.set(id, { ...node });
     }
