@@ -100,3 +100,42 @@ test("opening a Markdown file after a PDF keeps the app working", async ({ page 
   await expect(page.locator(".pdf-error")).toHaveCount(0);
   await expect(page.getByText("hello there")).toBeVisible();
 });
+
+test("shows a PDF-derived answer as Markdown when that node is open", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "asktree_llm_config",
+      JSON.stringify({
+        config: { endpoint: "http://localhost:5173/fake-llm", model: "t", apiKey: "x" },
+        provider: "openai",
+      }),
+    );
+  });
+  await page.route("**/fake-llm/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({ choices: [{ message: { content: "STUB ANSWER" } }] }),
+    }),
+  );
+
+  await page.goto("/");
+  await page.locator('header input[accept=".md,.markdown,.txt,.docx,.pdf"]').setInputFiles(FIXTURE);
+  await expect(page.locator(".pdf-page-total")).toHaveText("/ 2");
+
+  const box = (await page.locator(".pdf-pane canvas").boundingBox())!;
+  await page.mouse.move(box.x + 40, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 220, box.y + 140);
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Ask about this" }).click();
+  await page.getByPlaceholder(/ask anything/i).fill("what does this say?");
+  await page.getByRole("button", { name: /^send$/i }).click();
+  await expect(page.getByText("STUB ANSWER")).toBeVisible();
+
+  // Focus the answer node from the sidebar: the left pane must show Markdown, not the PDF.
+  await page.locator(".tree-node", { hasText: "what does this say?" }).click();
+  await expect(page.locator(".pdf-pane")).toHaveCount(0);
+  await expect(page.getByText("STUB ANSWER")).toBeVisible();
+});

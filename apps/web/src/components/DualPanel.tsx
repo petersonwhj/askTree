@@ -119,6 +119,9 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const currentNode = activePath[activePath.length - 1];
   const isPdf = store?.kind === "pdf";
   const parentNode = activePath.length >= 2 ? activePath[activePath.length - 2] : currentNode;
+  // The PDF viewer belongs to the document's root page only. Any other node
+  // shown on the left (a generated answer) is Markdown, like everywhere else.
+  const showPdf = isPdf && !!parentNode && parentNode.parentId === null;
   const [parentContent, setParentContent] = useState<string | null>(null);
   const [childContent, setChildContent] = useState<string | null>(null);
 
@@ -508,14 +511,14 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             })}
           </div>
         )}
-        {isPdf && pdfAsset ? (
+        {showPdf && pdfAsset ? (
           <PdfPane
             ref={pdfRef}
             asset={pdfAsset}
-            initialFraction={store.getReadingPosition(currentNode.id)}
+            initialFraction={store.getReadingPosition(parentNode.id)}
             onPageChange={(p, total) => {
               setPdfPage(p);
-              store?.setReadingPosition(currentNode.id, total > 0 ? p / total : 0);
+              store?.setReadingPosition(parentNode.id, total > 0 ? p / total : 0);
             }}
             onCrop={(crop) => setSelectedImage(crop)}
           />
