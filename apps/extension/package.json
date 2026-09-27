@@ -1,0 +1,17 @@
+{
+  "name": "@asktree/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@asktree/core": "workspace:*",
+    "defuddle": "0.19.4"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "vite": "^5.4.0"
+  }
+}

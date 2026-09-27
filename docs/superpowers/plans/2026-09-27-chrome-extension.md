@@ -386,7 +386,9 @@ Expected: FAIL — cannot resolve `../clip`.
 
 - [ ] **Step 4: Implement it**
 
-`apps/extension/src/clip.ts`:
+`apps/extension/src/clip.ts` — the pure formatting is split out because **Defuddle cannot run
+under jsdom** (it uses `:has()`, which jsdom's selector engine rejects), so the unit tests cover
+`formatClip` and the browser E2E covers `clipDocument`:
 
 ```ts
 import Defuddle from "defuddle";
@@ -397,15 +399,10 @@ export interface Clip {
   markdown: string;
 }
 
-/**
- * Turn a page into a document. Defuddle extracts the main content and emits
- * Markdown itself (and already falls back to the whole body when it finds no
- * article). Returns null when there is nothing usable to clip.
- */
-export function clipDocument(doc: Document, url: string): Clip | null {
-  const result = new Defuddle(doc, { url, markdown: true, separateMarkdown: true }).parse();
-  const body = (result.contentMarkdown ?? "").trim();
-  if (!body) return null;
+/** Wrap extracted Markdown as a document. Pure, so it can be unit-tested. */
+export function formatClip(title: string, url: string, body: string, date = new Date()): Clip | null {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
 
   let host = url;
   try {
@@ -413,20 +410,25 @@ export function clipDocument(doc: Document, url: string): Clip | null {
   } catch {
     // keep the raw url
   }
-  const title = (result.title || doc.title || host).trim() || host;
-  const date = new Date().toISOString().slice(0, 10);
+  const cleanTitle = (title || host).trim() || host;
+  const day = date.toISOString().slice(0, 10);
 
   return {
-    title,
+    title: cleanTitle,
     url,
-    markdown: `# ${title}\n\n> Source: ${url} — ${date}\n\n${body}`,
+    markdown: `# ${cleanTitle}\n\n> Source: ${url} — ${day}\n\n${trimmed}`,
   };
+}
+
+/** Extract the main content with Defuddle (which emits Markdown itself). */
+export function clipDocument(doc: Document, url: string): Clip | null {
+  const result = new Defuddle(doc, { url, markdown: true, separateMarkdown: true }).parse();
+  return formatClip(result.title || doc.title, url, result.contentMarkdown ?? "");
 }
 ```
 
-If Defuddle cannot run under jsdom, report it and keep the assertion by loading the HTML into a
-real document via `document.implementation.createHTMLDocument` (already used above) — do not
-mock Defuddle.
+The test asserts `formatClip`'s exact output (title, source header with the date, empty-body →
+null) — no mocking of Defuddle. `clipDocument` is exercised by Task 7 in a real browser.
 
 - [ ] **Step 5: Run to verify it passes**
 
