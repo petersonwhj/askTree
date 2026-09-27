@@ -1,3 +1,5 @@
+**▶ [Open the web app](https://petersonwhj.github.io/askTree/)** — pure front-end, runs entirely in your browser. Click and use it; nothing to install, no account.
+
 **English** | [简体中文](README.zh-CN.md)
 
 # AskTree

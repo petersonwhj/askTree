@@ -1,3 +1,5 @@
+**▶ [打开网页版](https://petersonwhj.github.io/askTree/)** —— 纯前端应用,完全在浏览器里运行;点击即可使用,无需安装、无需账号。
+
 [English](README.md) | **简体中文**
 
 # AskTree
