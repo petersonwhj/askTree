@@ -5,17 +5,18 @@ import type { AskImage } from "@asktree/core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-const PDF_RENDER_SCALE = 1.5;
-const MAX_EDGE = 1600;
+const PAGE_IMAGE_MAX_EDGE = 1600;
 const MAX_CANVAS = 6000;
 const JPEG_QUALITY = 0.8;
 const CROP_MAX_ZOOM = 3;
 const CROP_MAX_EDGE = 2000;
 const PAGE_CACHE_MAX = 10;
 const MIN_CROP = 8;
-const ZOOM_MIN = 0.25;
+const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
 const ZOOM_STEP = 1.25;
+/** Horizontal padding of .pdf-canvas-wrap (must match the CSS). */
+const WRAP_PADDING_X = 12;
 
 // pdf.js needs to fetch its decoders, CMaps and standard fonts locally; the copy
 // script puts them under public/pdfjs (see apps/web/scripts/copy-pdfjs-assets.mjs).
@@ -55,24 +56,44 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageDraft, setPageDraft] = useState("1");
-  const [zoom, setZoom] = useState(1);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  // Absolute render scale (1 = PDF's natural 72dpi size). In fit mode it is
+  // derived from the pane width; otherwise it is the reader's zoom.
+  const [fitMode, setFitMode] = useState(true);
+  const [scale, setScale] = useState(1);
+  const [displayScale, setDisplayScale] = useState(1);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pageWarning, setPageWarning] = useState<string | null>(null);
 
-  const fitScale = useCallback(
-    (baseWidth: number, baseHeight: number) =>
-      Math.min(PDF_RENDER_SCALE, MAX_EDGE / baseWidth, MAX_CANVAS / baseWidth, MAX_CANVAS / baseHeight),
+  // Standard "fit page width": container width / page width at scale 1.
+  const fitWidthScale = useCallback(
+    (baseWidth: number) => (baseWidth > 0 && containerWidth > 0 ? containerWidth / baseWidth : 0),
+    [containerWidth],
+  );
+
+  const clampScale = useCallback((value: number, baseWidth: number, baseHeight: number) => {
+    const bounded = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+    return Math.min(bounded, MAX_CANVAS / baseWidth, MAX_CANVAS / baseHeight);
+  }, []);
+
+  // Context page images: a fixed, modest scale independent of the reader's zoom.
+  const pageImageScale = useCallback(
+    (baseWidth: number) => Math.min(1.5, PAGE_IMAGE_MAX_EDGE / baseWidth),
     [],
   );
 
   const renderPage = useCallback(async (pageNumber: number, doc: Doc, target: HTMLCanvasElement) => {
     const pdfPage = await doc.getPage(pageNumber);
     const base = pdfPage.getViewport({ scale: 1 });
-    const scale = fitScale(base.width, base.height) * zoom;
-    const viewport = pdfPage.getViewport({ scale });
+    const wanted = fitMode ? fitWidthScale(base.width) : scale;
+    const resolved = clampScale(wanted, base.width, base.height);
+    if (resolved <= 0) return;
+    const viewport = pdfPage.getViewport({ scale: resolved });
     target.width = viewport.width;
     target.height = viewport.height;
+    setDisplayScale(resolved);
 
     // pdf.js reports images it cannot decode through its warning logger and then
     // renders the page without them. Catch that here so the reader sees a notice
@@ -96,7 +117,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
         ? "Part of this page uses an image format this app cannot decode, so it may look incomplete."
         : null,
     );
-  }, [fitScale, zoom]);
+  }, [fitMode, scale, fitWidthScale, clampScale]);
 
   // Captured once: the load effect must not depend on the fraction, or navigating
   // (which persists a new fraction) would reload the document.
@@ -164,6 +185,17 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     setPageDraft(String(page));
   }, [page]);
 
+  // Track the pane width so "fit width" follows resizes of the split panel.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => setContainerWidth(Math.max(0, el.clientWidth - WRAP_PADDING_X * 2));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const jumpTo = (value: string) => {
     const n = Math.round(Number(value));
     if (!Number.isFinite(n) || total === 0) {
@@ -174,25 +206,23 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   };
 
   const zoomBy = (factor: number) => {
-    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z * factor)));
+    setFitMode(false);
+    setScale(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, displayScale * factor)));
   };
 
   const pageImage = useCallback(async (pageNumber: number, doc: Doc): Promise<AskImage> => {
     const cached = pageImageCache.current.get(pageNumber);
     if (cached) return cached;
 
-    let canvas: HTMLCanvasElement;
-    if (pageNumber === page && zoom === 1 && canvasRef.current) {
-      canvas = canvasRef.current; // on-screen canvas is already the base scale
-    } else {
-      const pdfPage = await doc.getPage(pageNumber);
-      const base = pdfPage.getViewport({ scale: 1 });
-      // Context images always use the base (fit) scale, independent of the
-      // reader's zoom, so a zoomed-in view does not inflate the request.
-      canvas = pageCanvas(pdfPage, fitScale(base.width, base.height));
-      const viewport = pdfPage.getViewport({ scale: fitScale(base.width, base.height) });
-      await pdfPage.render({ canvas, viewport }).promise;
-    }
+    const pdfPage = await doc.getPage(pageNumber);
+    const base = pdfPage.getViewport({ scale: 1 });
+    // Context images use a fixed modest scale, independent of the reader's zoom,
+    // so a zoomed-in view does not inflate the request. The per-page cache makes
+    // repeat asks free.
+    const renderScale = pageImageScale(base.width);
+    const canvas = pageCanvas(pdfPage, renderScale);
+    const viewport = pdfPage.getViewport({ scale: renderScale });
+    await pdfPage.render({ canvas, viewport }).promise;
 
     const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
     const image: AskImage = {
@@ -207,7 +237,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
       if (oldest !== undefined) cache.delete(oldest);
     }
     return image;
-  }, [fitScale, page, zoom]);
+  }, [pageImageScale]);
 
   useImperativeHandle(ref, () => ({
     async renderContextImages() {
@@ -258,7 +288,6 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     const k = Math.max(1, Math.min(CROP_MAX_ZOOM, CROP_MAX_EDGE / Math.max(current.w, current.h)));
     const pdfPage = await doc.getPage(page);
     const base = pdfPage.getViewport({ scale: 1 });
-    const displayScale = fitScale(base.width, base.height) * zoom;
     const viewport = pdfPage.getViewport({ scale: displayScale * k });
 
     const out = document.createElement("canvas");
@@ -301,14 +330,14 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
         </button>
         <div className="pdf-zoom">
           <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
-          <span className="pdf-zoom-label">{Math.round(zoom * 100)}%</span>
+          <span className="pdf-zoom-label">{Math.round(displayScale * 100)}%</span>
           <button type="button" aria-label="Zoom in" onClick={() => zoomBy(ZOOM_STEP)}>+</button>
-          <button type="button" className="pdf-fit" onClick={() => setZoom(1)}>Fit width</button>
+          <button type="button" className="pdf-fit" onClick={() => setFitMode(true)}>Fit width</button>
         </div>
       </div>
       {loadError && <div className="pdf-error">{loadError}</div>}
       {!loadError && pageWarning && <div className="pdf-warning">{pageWarning}</div>}
-      <div className="pdf-canvas-wrap" onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
+      <div ref={wrapRef} className="pdf-canvas-wrap" onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
         <canvas ref={canvasRef} />
         {rect && rect.w >= MIN_CROP && rect.h >= MIN_CROP && (
           <>
