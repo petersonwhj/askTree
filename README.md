@@ -6,7 +6,15 @@
 
 **Try it now →** [**Web app**](https://petersonwhj.github.io/askTree/) · [**Chrome extension**](https://github.com/petersonwhj/askTree/releases/latest) — pure front-end, nothing to install, no account.
 
-AskTree is a local-first study tool. Load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
+## How AskTree started
+
+You are reading something you don't fully understand. You highlight the sentence and ask an LLM — and the answer is clear enough, except that it uses two more terms you don't know.
+
+It is like learning a language from a **monolingual dictionary**: every definition introduces new words, so you look those up too. One question leads to another, and then another. Each answer makes sense on its own, but together the trail falls apart. When you finally want to go back to that earlier explanation — or the one before it — to fit all the pieces together, there is nowhere to go: a **linear chat hides the path you took**, so the more you learn, the more lost you feel.
+
+AskTree is that path, made visible — every answer is a page in a tree you can climb back up, re-read, and branch from again.
+
+It is a local-first study tool: load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
 
 No server, no account, no analytics. Articles, answers and the tree live in your browser (IndexedDB), and you choose which LLM to use.
 
