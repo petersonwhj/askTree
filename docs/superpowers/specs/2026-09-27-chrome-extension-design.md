@@ -93,10 +93,12 @@ apps/web/                           unchanged app; built twice (web, extension m
 
 ## Capture
 
-**Web pages (content script):** `Defuddle` extracts the main content and metadata; `Turndown`
-(already a dependency) converts it to Markdown. The clip is normalised to title + source header
-+ body. Fallback order: Defuddle body → whole `document.body` → fail with a message. The root
-title is `document.title` (falling back to the URL's host).
+**Web pages (content script):** `Defuddle` extracts the main content and metadata and can emit
+Markdown itself (`new Defuddle(document, { url, markdown: true }).parse()` →
+`contentMarkdown`), so no separate HTML→Markdown step is needed here (Turndown stays for the
+Word import). Defuddle already falls back to the whole body when it finds no article content;
+if the content script cannot run at all (e.g. `chrome://`), the background treats that as a
+failure. The root title is `document.title` (falling back to the URL's host).
 
 **PDFs (background):** `fetch(tab.url)` with the `activeTab` grant → `arrayBuffer()` → written
 to the shared assets store under a fresh id via `IndexedDBStorageAdapter.writeAsset`. The root
