@@ -62,7 +62,7 @@ export class ForestStore {
 
   async setActiveTree(id: string | null): Promise<void> {
     if (id !== null && !this.trees.has(id)) throw new Error(`Tree not found: ${id}`);
-    await this.persistIndex({ trees: this.index.trees, activeTreeId: id });
+    await this.mutateIndex((current) => ({ ...current, activeTreeId: id }));
   }
 
   async createTree(
@@ -76,10 +76,10 @@ export class ForestStore {
     const root = await store.createTree(content, title);
     if (asset) await store.setAsset(asset);
     this.trees.set(treeId, store);
-    await this.persistIndex({
-      trees: [...this.index.trees, treeId],
+    await this.mutateIndex((current) => ({
+      trees: [...current.trees, treeId],
       activeTreeId: treeId,
-    });
+    }));
     return root;
   }
 
@@ -97,10 +97,12 @@ export class ForestStore {
     }
     await this.adapter.deleteTreeMeta(id);
     this.trees.delete(id);
-    const remaining = this.index.trees.filter((t) => t !== id);
-    const activeTreeId =
-      this.index.activeTreeId === id ? remaining[0] ?? null : this.index.activeTreeId;
-    await this.persistIndex({ trees: remaining, activeTreeId });
+    await this.mutateIndex((current) => {
+      const remaining = current.trees.filter((t) => t !== id);
+      const activeTreeId =
+        current.activeTreeId === id ? remaining[0] ?? null : current.activeTreeId;
+      return { trees: remaining, activeTreeId };
+    });
   }
 
   async exportTree(id: string): Promise<ExportBundle> {
@@ -170,18 +172,22 @@ export class ForestStore {
     }
 
     this.trees.set(treeId, await TreeStore.deserialize(json, this.adapter, treeId));
-    await this.persistIndex({
-      trees: [...this.index.trees, treeId],
+    await this.mutateIndex((current) => ({
+      trees: [...current.trees, treeId],
       activeTreeId: treeId,
-    });
+    }));
     return treeId;
   }
 
-  private async persistIndex(next: {
-    trees: string[];
-    activeTreeId: string | null;
-  }): Promise<void> {
-    this.index = { version: 1, ...next };
+  /**
+   * Apply a change to the forest index, re-reading the stored index first so a
+   * second app tab (another ForestStore over the same storage) does not lose
+   * entries it added since this one loaded.
+   */
+  private async mutateIndex(mutate: (current: ForestIndex) => ForestIndex): Promise<void> {
+    const current =
+      (await this.adapter.readForestIndex()) ?? { version: 1, activeTreeId: null, trees: [] };
+    this.index = mutate(current);
     await this.adapter.writeForestIndex(this.index);
   }
 }

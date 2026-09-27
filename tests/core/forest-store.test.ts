@@ -210,3 +210,17 @@ describe("ForestStore kind", () => {
     expect(forest.listTrees().find((t) => t.id === newId)?.kind).toBe("docx");
   });
 });
+
+describe("ForestStore concurrency", () => {
+  it("keeps documents added by another store over the same adapter", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const a = await ForestStore.load(adapter);
+    const b = await ForestStore.load(adapter);
+
+    await a.createTree("a", "A");
+    await b.createTree("b", "B");
+
+    const reloaded = await ForestStore.load(adapter);
+    expect(reloaded.listTrees().map((t) => t.title).sort()).toEqual(["A", "B"]);
+  });
+});
