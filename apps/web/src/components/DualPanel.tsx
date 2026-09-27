@@ -329,21 +329,29 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     setError(null);
     if (!store) return;
     const activeStore = store;
-    const crop = isPdf ? selectedImage ?? undefined : undefined;
+
+    const questionedNodeId =
+      selectedText?.nodeId ||
+      (freeAskTarget === "left" ? parentNode.id : currentNode.id);
+    // Only a question about the PDF document's own root page is an image ask.
+    // Anything deeper is an ordinary Markdown answer and uses the text flow —
+    // it must not demand a crop or claim images it does not send.
+    const questionedNode = activeStore.getNode(questionedNodeId);
+    const askingPdfRoot = isPdf && !!questionedNode && questionedNode.parentId === null;
+    const crop = askingPdfRoot ? selectedImage ?? undefined : undefined;
+    const imageAsk = askingPdfRoot && !!crop;
     const context =
-      isPdf && pdfRef.current ? await pdfRef.current.renderContextImages() : { images: [], pages: [] };
+      imageAsk && pdfRef.current
+        ? await pdfRef.current.renderContextImages()
+        : { images: [], pages: [] };
     const { images: requestImages, legendItems } = assemblePdfImages({
       crop,
       attachments: images,
       contextPages: context.pages,
       contextImages: context.images,
     });
-    const legend =
-      requestImages.length > 0 || context.pages.length > 0 ? buildImageLegend(legendItems) : "";
+    const legend = imageAsk ? buildImageLegend(legendItems) : "";
 
-    const questionedNodeId =
-      selectedText?.nodeId ||
-      (freeAskTarget === "left" ? parentNode.id : currentNode.id);
     const askedText = selectedText?.text || "";
     const askedStart = selectedText?.start || 0;
     const askedEnd = selectedText?.end || 0;
@@ -393,7 +401,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           activeStore,
           promptConfig,
         );
-        const template = isPdf ? promptConfig.pdfTemplate ?? PDF_TEMPLATE : promptConfig.template;
+        const template = imageAsk ? promptConfig.pdfTemplate ?? PDF_TEMPLATE : promptConfig.template;
         const rendered = renderPrompt(slices, question, template);
         const answer = await llm.ask({
           question,
@@ -624,7 +632,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onOpenSettings={onOpenSettings}
           onDebugSuggestions={() => setDebugSuggestion(true)}
           onClearContext={() => { setSelectedImage(null); setSelectedText(null); }}
-          contextImage={selectedImage}
+          contextImage={showPdf ? selectedImage : null}
         />
       </div>
     </div>

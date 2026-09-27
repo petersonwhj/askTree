@@ -338,4 +338,41 @@ describe("DualPanel panel actions and free-ask target", () => {
     await waitFor(() => expect(container.querySelector(".pdf-pane")).toBeNull());
     expect(await screen.findByText(/这是答案正文/)).toBeTruthy();
   });
+  it("asks a PDF tree's Markdown answer as a normal text question", async () => {
+    const adapter = new InMemoryStorageAdapter();
+    const pdfStore = new TreeStore(adapter, "pdf-tree", "pdf");
+    const root = await pdfStore.createTree("", "Paper");
+    await pdfStore.setAsset(new Blob([new Uint8Array([1, 2])]));
+    const child = await pdfStore.addChild(
+      root.id,
+      { selectedText: "", startPos: 0, endPos: 0, question: "这是什么?" },
+      "# 答案\n\n这是答案正文,足够长以便作为上下文。",
+    );
+    const ask = vi.fn().mockResolvedValue("ok");
+    mocks.ctx = {
+      ...mocks.ctx,
+      store: pdfStore,
+      activePath: [pdfStore.getNode(child.id)!],
+      llm: { ask, getConfig: () => ({ endpoint: "http://x", model: "m" }) },
+    };
+
+    render(<DualPanel />);
+    expect(await screen.findByText(/这是答案正文/)).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText(/ask anything/i), {
+      target: { value: "继续解释" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalled());
+    const options = ask.mock.calls[0][0] as { images?: unknown; system?: string; user?: string };
+    // The answer node is Markdown, so the text template must be used — not the
+    // PDF/image template that tells the model a crop was attached.
+    expect(options.system ?? "").toContain("drilling into it with follow-up questions");
+    expect(options.system ?? "").not.toContain("they have shared as images");
+    expect(options.user ?? "").not.toContain("selected a region of a document");
+    expect(options.images).toBeUndefined();
+    const edge = pdfStore.getNode(root.id)!.children[0];
+    expect(edge.crop).toBeUndefined();
+    expect(edge.contextPages).toBeUndefined();
+  });
 });
