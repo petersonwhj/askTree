@@ -40,6 +40,8 @@ interface TreeContextValue {
   /** Bumped on forest or tree mutations so derived views can recompute. */
   treeVersion: number;
   isLoading: boolean;
+  loadNotice: string | null;
+  setLoadNotice: (message: string | null) => void;
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null);
@@ -67,6 +69,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
   }, [promptConfig]);
 
   const [treeVersion, setTreeVersion] = useState(0);
+  const [loadNotice, setLoadNotice] = useState<string | null>(null);
 
   const [showExplored, setShowExplored] = useState<boolean>(() => {
     try {
@@ -218,7 +221,7 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
       createDocument, deleteDocument, renameDocument, exportDocument, importDocument,
       navigateTo, navigateUp, focusNode, addChildNode, updateStatus, removeNode,
       selectedText, setSelectedText, promptConfig, setPromptConfig, isLoading,
-      showExplored, setShowExplored, treeVersion,
+      showExplored, setShowExplored, treeVersion, loadNotice, setLoadNotice,
     }}>
       {children}
     </TreeContext.Provider>

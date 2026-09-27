@@ -4,6 +4,7 @@ import { AppHeader } from "./components/AppHeader";
 import { TreeSidebar } from "./components/TreeSidebar";
 import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { DualPanel } from "./components/DualPanel";
+import { LoadNotice } from "./components/LoadNotice";
 import { SettingsModal } from "./components/SettingsModal";
 import "./App.css";
 
@@ -31,7 +32,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
 }
 
 function AppContent() {
-  const { isLoading } = useTree();
+  const { isLoading, loadNotice, setLoadNotice } = useTree();
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(220);
@@ -76,6 +77,7 @@ function AppContent() {
         </div>
       </div>
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {loadNotice && <LoadNotice message={loadNotice} onClose={() => setLoadNotice(null)} />}
     </div>
   );
 }

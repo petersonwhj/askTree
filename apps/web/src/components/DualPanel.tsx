@@ -96,7 +96,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     store, llm, activePath, selectedText, setSelectedText,
     addChildNode, updateStatus, promptConfig, createDocument, navigateTo, focusNode, navigateUp,
-    showExplored, treeVersion,
+    showExplored, treeVersion, setLoadNotice,
   } = useTree();
 
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +258,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
       try {
         await openDocumentFile(file, createDocument);
       } catch (err) {
-        setError((err as Error).message);
+        setLoadNotice((err as Error).message);
       }
     };
 

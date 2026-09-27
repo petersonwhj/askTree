@@ -17,6 +17,7 @@ const baseCtx = () => ({
   createDocument: vi.fn(),
   importDocument: vi.fn(),
   exportDocument: vi.fn(),
+  setLoadNotice: vi.fn(),
 });
 
 describe("AppHeader brand", () => {
@@ -102,6 +103,20 @@ describe("AppHeader forest actions", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(importDocument).toHaveBeenCalled());
+  });
+
+  it("reports a failed open through the shared notice", async () => {
+    const setLoadNotice = vi.fn();
+    mocks.ctx = { ...baseCtx(), setLoadNotice };
+
+    const { container } = render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
+    const input = container.querySelector(
+      'header input[accept=".md,.markdown,.txt,.docx,.pdf"]',
+    ) as HTMLInputElement;
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(setLoadNotice).toHaveBeenCalled());
   });
 
   it("has no clear button", () => {

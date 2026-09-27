@@ -10,7 +10,7 @@ import { chooseExportFormat } from "../lib/export-format";
 interface Props { onSettings: () => void; onToggleSidebar: () => void; }
 
 export function AppHeader({ onSettings, onToggleSidebar }: Props) {
-  const { activeTreeId, trees, createDocument, importDocument, exportDocument } = useTree();
+  const { activeTreeId, trees, createDocument, importDocument, exportDocument, setLoadNotice } = useTree();
   const fileRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -76,9 +76,9 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
     try {
       await openDocumentFile(file, createDocument);
     } catch (e) {
-      alert("Failed to load file: " + (e as Error).message);
+      setLoadNotice((e as Error).message);
     }
-  }, [createDocument]);
+  }, [createDocument, setLoadNotice]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

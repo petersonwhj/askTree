@@ -10,13 +10,15 @@ beforeEach(() => {
 });
 
 function Probe() {
-  const { trees, activeTreeId, createDocument, deleteDocument, isLoading } = useTree();
+  const { trees, activeTreeId, createDocument, deleteDocument, isLoading, loadNotice, setLoadNotice } = useTree();
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="count">{trees.length}</span>
       <span data-testid="active">{activeTreeId ?? "none"}</span>
       <span data-testid="kind">{trees[0]?.kind ?? "none"}</span>
+      <span data-testid="notice">{loadNotice ?? "none"}</span>
+      <button onClick={() => setLoadNotice("boom")}>notice</button>
       <button onClick={() => createDocument("body", "Doc")}>create</button>
       <button onClick={() => createDocument("body", "Docx", "docx")}>create-docx</button>
       <button onClick={() => createDocument("", "Paper", "pdf", new Blob([new Uint8Array([4, 4])]))}>create-pdf</button>
@@ -66,5 +68,17 @@ describe("useTree forest context", () => {
 
     fireEvent.click(screen.getByText("create-pdf"));
     await waitFor(() => expect(screen.getByTestId("kind").textContent).toBe("pdf"));
+  });
+
+  it("exposes a load notice", async () => {
+    render(
+      <TreeProvider>
+        <Probe />
+      </TreeProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
+
+    fireEvent.click(screen.getByText("notice"));
+    await waitFor(() => expect(screen.getByTestId("notice").textContent).toBe("boom"));
   });
 });
