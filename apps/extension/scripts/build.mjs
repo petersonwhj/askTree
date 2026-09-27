@@ -25,6 +25,10 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(resolve(root, "../web/dist"), dist, { recursive: true });
 
+// Public assets the web build copies for dev/tests must not ship in the extension.
+rmSync(resolve(dist, "e2e-clip-fixture.html"), { force: true });
+rmSync(resolve(dist, "demo"), { recursive: true, force: true });
+
 // 2. The service worker (ES module) and the content script (IIFE global).
 await build({
   root,
