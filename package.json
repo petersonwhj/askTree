@@ -7,8 +7,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "lint": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
-    "deploy": "pnpm build && gh-pages -d apps/web/dist"
+    "lint": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit && tsc -p apps/extension/tsconfig.json --noEmit",
+    "deploy": "pnpm build && gh-pages -d apps/web/dist",
+    "build:extension": "pnpm --filter @asktree/extension build"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

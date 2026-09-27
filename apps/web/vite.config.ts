@@ -28,8 +28,11 @@ export default defineConfig(({ mode }) => {
     };
   }
 
+  // The extension packages the same app; only the base path differs.
+  const isExtension = mode === "extension";
+
   return {
-    base: "/askTree/",
+    base: isExtension ? "./" : "/askTree/",
     plugins: [react()],
     resolve: {
       alias: {
