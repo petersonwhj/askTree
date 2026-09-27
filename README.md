@@ -6,40 +6,17 @@
 
 **Try it now →** [**Web app**](https://petersonwhj.github.io/askTree/) · [**Chrome extension**](https://github.com/petersonwhj/askTree/releases/latest) — pure front-end, nothing to install, no account.
 
-## How AskTree started
+## Why AskTree exists
 
 You are reading something you don't fully understand. You highlight the sentence and ask an LLM — and the answer is clear enough, except that it uses two more terms you don't know.
 
 It is like learning a language from a **monolingual dictionary**: every definition introduces new words, so you look those up too. One question leads to another, and then another. Each answer makes sense on its own, but together the trail falls apart. When you finally want to go back to that earlier explanation — or the one before it — to fit all the pieces together, there is nowhere to go: a **linear chat hides the path you took**, so the more you learn, the more lost you feel.
 
-AskTree is that path, made visible — every answer is a page in a tree you can climb back up, re-read, and branch from again.
+AskTree is built around a method that fixes exactly that. Start from one dense article and keep drilling: every answer is a branch. You stop a branch when its leaves are things you already understand, and mark each page you have truly got as **resolved** — it turns green. Then step back and work your way up: whenever a green page rests on something still gray, go back down and fill that gap. When the whole tree is green, you have not just read the article — you have built a connected, bottom-up understanding of everything around it.
 
-It is a local-first study tool: load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. The answer becomes a new page you can read — and drill into again. Every branch is a line of inquiry; the tree grows exactly as deep as your curiosity goes.
+And you don't have to know how to ask. In the AI era the model proposes the questions: **💡** offers three good ones for the passage you are on, so a vague "I don't get this" becomes a precise line of inquiry.
 
-No server, no account, no analytics. Articles, answers and the tree live in your browser (IndexedDB), and you choose which LLM to use.
-
-## A method, made into a tool
-
-A chat window hands you an answer. AskTree encodes a *method* for getting to the bottom of something hard — and a tool is only as good as the method it turns into a habit.
-
-Start from one dense article and keep drilling. Every answer is a branch; you stop a branch when its leaves are things you already understand, and you mark each page you have truly got as **resolved** — it turns green. Then step back and work your way up: whenever a green page rests on something still gray, go back down and fill that gap.
-
-When the whole tree is green, you have not just read the article — you have built a connected, bottom-up understanding of everything around it.
-
-And you don't have to know how to ask. In the AI era the model can propose the questions: **💡** offers three good ones for the passage you are on, so a vague "I don't get this" becomes a precise line of inquiry.
-
----
-
-## Why
-
-**Reading alone is passive. Asking makes it active.**
-Most people scroll through an article, hit a confusing sentence, and move on. AskTree makes that moment productive: select the passage, ask *why*, and get an explanation anchored to the text you're actually reading.
-
-**Every answer is a new starting point.**
-Unlike a chat window where each question stands alone, AskTree keeps the whole learning path as a tree — you can always see where you came from and what is still open.
-
-**Structure reflects understanding.**
-Mark a page `resolved` when it clicks. The sidebar becomes a map of your own learning process.
+AskTree is the tool that puts this method to work: load a Markdown, Word or PDF document, highlight the sentence you don't understand, crop a region of a PDF, or paste an image — and ask. Answers become new pages you can read and drill into again, and every branch is a line of inquiry — the tree grows exactly as deep as your curiosity goes. No server, no account, no analytics: your articles, answers and tree live in your browser (IndexedDB), and you choose which LLM to use.
 
 ---
 
