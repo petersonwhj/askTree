@@ -22,7 +22,8 @@ export interface PdfPaneHandle {
 
 interface Props {
   asset: ArrayBuffer;
-  initialPage?: number;
+  /** Reading position as a 0-1 fraction of the page count (matches setReadingPosition). */
+  initialFraction?: number;
   onPageChange?: (page: number, total: number) => void;
   onCrop?: (crop: AskImage) => void;
 }
@@ -36,7 +37,7 @@ function pageCanvas(page: PdfPage, scale: number): HTMLCanvasElement {
 }
 
 export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
-  { asset, initialPage = 1, onPageChange, onCrop },
+  { asset, initialFraction = 0, onPageChange, onCrop },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,7 +45,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   const pageImageCache = useRef(new Map<number, AskImage>());
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(initialPage);
+  const [page, setPage] = useState(1);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const scaleFor = useCallback((baseWidth: number) => {
@@ -68,18 +69,27 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
       docRef.current = doc;
       pageImageCache.current.clear();
       setTotal(doc.numPages);
-      if (canvasRef.current) await renderPage(initialPage, doc, canvasRef.current);
+      const start = Math.min(
+        doc.numPages,
+        Math.max(1, Math.round(initialFraction * doc.numPages) || 1),
+      );
+      setPage(start);
     })();
     return () => { cancelled = true; };
-  }, [asset, initialPage, renderPage]);
+  }, [asset, initialFraction]);
+
+  // Keep the callback in a ref so a new function identity each render does not
+  // re-trigger the render effect.
+  const onPageChangeRef = useRef(onPageChange);
+  onPageChangeRef.current = onPageChange;
 
   useEffect(() => {
     const doc = docRef.current;
     if (doc && canvasRef.current && total > 0 && page >= 1 && page <= total) {
       void renderPage(page, doc, canvasRef.current);
-      onPageChange?.(page, total);
+      onPageChangeRef.current?.(page, total);
     }
-  }, [page, total, renderPage, onPageChange]);
+  }, [page, total, renderPage]);
 
   const pageImage = useCallback(async (pageNumber: number, doc: Doc): Promise<AskImage> => {
     const cached = pageImageCache.current.get(pageNumber);

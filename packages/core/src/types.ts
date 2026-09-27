@@ -15,6 +15,10 @@ export interface Edge {
   question: string;
   /** Images attached to this question, when the ask was multimodal. */
   images?: AskImage[];
+  /** The PDF region this question was asked about. */
+  crop?: AskImage;
+  /** Page numbers whose images were sent (current, -1, +1). */
+  contextPages?: number[];
 }
 
 export interface Node {

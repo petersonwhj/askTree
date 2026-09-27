@@ -26,6 +26,8 @@ interface Props {
   rawText?: string | null;  // raw markdown slice for proper math rendering
   onSend: (question: string, images: AskImage[]) => void;
   onClearContext?: () => void;
+  /** A cropped PDF region acting as the selection context. */
+  contextImage?: AskImage | null;
   isLoading: boolean;
   freeAskTarget?: "left" | "right";
   onFreeAskTargetChange?: (target: "left" | "right") => void;
@@ -48,6 +50,7 @@ export function QuestionInputBar({
   rawText,
   onSend,
   onClearContext,
+  contextImage = null,
   isLoading,
   freeAskTarget = "right",
   onFreeAskTargetChange,
@@ -202,16 +205,27 @@ export function QuestionInputBar({
 
   return (
     <div className="question-input-bar">
-      {contextHtml ? (
+      {contextHtml || contextImage ? (
         <div className="context-row">
           {contextSide && (
             <span className="context-panel-label">
               {contextSide === "left" ? "Left panel" : "Right panel"}
             </span>
           )}
-          <div className="context-badge" title={contextText || rawText || ""}>
-            <div dangerouslySetInnerHTML={{ __html: contextHtml }} />
-          </div>
+          {contextImage ? (
+            <div className="context-badge capture" title="About this capture">
+              <img
+                className="context-capture"
+                src={`data:${contextImage.mediaType};base64,${contextImage.data}`}
+                alt="selected region"
+              />
+              <span className="context-capture-label">About: this capture</span>
+            </div>
+          ) : (
+            <div className="context-badge" title={contextText || rawText || ""}>
+              <div dangerouslySetInnerHTML={{ __html: contextHtml! }} />
+            </div>
+          )}
           {tools}
         </div>
       ) : (

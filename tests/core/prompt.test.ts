@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderPrompt, buildImageLegend } from "@asktree/core";
+import { renderPrompt, buildImageLegend, assemblePdfImages } from "@asktree/core";
 import { DEFAULT_PROMPT_CONFIG } from "@asktree/core";
 
 describe("renderPrompt", () => {
@@ -99,5 +99,19 @@ describe("buildImageLegend", () => {
     expect(legend).not.toContain("Selected region");
     expect(legend).toContain("1. Attached image");
     expect(legend).toContain("2. Page 1");
+  });
+});
+
+describe("assemblePdfImages", () => {
+  it("orders crop, then attachments, then pages", () => {
+    const crop = { mediaType: "image/png", data: "C" };
+    const att = { mediaType: "image/png", data: "A" };
+    const { images, legendItems } = assemblePdfImages({
+      crop,
+      attachments: [att],
+      contextPages: [3, 2, 4],
+    });
+    expect(images.map((i) => i.data)).toEqual(["C", "A"]);
+    expect(legendItems.map((i) => i.role)).toEqual(["crop", "attachment", "page", "page", "page"]);
   });
 });

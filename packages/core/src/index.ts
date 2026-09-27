@@ -7,7 +7,7 @@ export { InMemoryStorageAdapter } from "./storage-adapter";
 export { TreeStore } from "./tree-store";
 export { ForestStore } from "./forest-store";
 
-export { collectContext, renderPrompt, parseSuggestedQuestions, buildImageLegend } from "./prompt";
+export { collectContext, renderPrompt, parseSuggestedQuestions, buildImageLegend, assemblePdfImages } from "./prompt";
 export type { SelectionInfo, ImageLegendItem } from "./prompt";
 
 export { LLMService } from "./llm-service";

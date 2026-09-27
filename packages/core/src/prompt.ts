@@ -1,4 +1,4 @@
-import { DEFAULT_PROMPT_CONFIG, type PromptConfig, type ContextSlice } from "./types";
+import { DEFAULT_PROMPT_CONFIG, type PromptConfig, type ContextSlice, type AskImage } from "./types";
 import type { TreeStore } from "./tree-store";
 
 function cutSurrounding(content: string, startPos: number, endPos: number, radius: number): string {
@@ -180,4 +180,25 @@ export function buildImageLegend(items: ImageLegendItem[]): string {
     ? "The question refers to image 1; the other images are background only."
     : "The question refers to the attached images.";
   return [header, ...lines, footer].join("\n");
+}
+
+export function assemblePdfImages(input: {
+  crop?: AskImage;
+  attachments?: AskImage[];
+  contextPages: number[];
+}): { images: AskImage[]; legendItems: ImageLegendItem[] } {
+  const items: ImageLegendItem[] = [];
+  const images: AskImage[] = [];
+  if (input.crop) {
+    images.push(input.crop);
+    items.push({ role: "crop" });
+  }
+  for (const attachment of input.attachments ?? []) {
+    images.push(attachment);
+    items.push({ role: "attachment" });
+  }
+  for (const page of input.contextPages) {
+    items.push({ role: "page", page });
+  }
+  return { images, legendItems: items };
 }

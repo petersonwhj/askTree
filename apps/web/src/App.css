@@ -494,3 +494,7 @@ body {
 .pdf-canvas-wrap canvas { display: block; cursor: crosshair; }
 .pdf-crop-rect { position: absolute; border: 1px dashed #58a6ff; background: #58a6ff22; pointer-events: none; }
 .pdf-crop-ask { position: absolute; background: #238636; border: 1px solid #238636; color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+
+.context-badge.capture { display: flex; align-items: center; gap: 8px; }
+.context-capture { max-height: 56px; border-radius: 4px; border: 1px solid #30363d; }
+.context-capture-label { font-size: 12px; color: #e2b714; white-space: nowrap; }

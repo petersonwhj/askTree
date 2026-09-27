@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTree } from "../hooks/useTree";
 import { MarkdownPane } from "./MarkdownPane";
+import { PdfPane, type PdfPaneHandle } from "./PdfPane";
 import { ImageLightbox } from "./ImageLightbox";
 import { QuestionInputBar, type AskTarget } from "./QuestionInputBar";
 import { PromptDebugModal } from "./PromptDebugModal";
@@ -12,6 +13,9 @@ import {
   renderPrompt,
   SUGGEST_TEMPLATE,
   parseSuggestedQuestions,
+  buildImageLegend,
+  assemblePdfImages,
+  PDF_TEMPLATE,
 } from "@asktree/core";
 import type { Node, TreeStore, AskImage } from "@asktree/core";
 
@@ -107,8 +111,13 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [debugNodeId, setDebugNodeId] = useState<string | null>(null);
   const [debugSuggestion, setDebugSuggestion] = useState(false);
   const [freeAskTarget, setFreeAskTarget] = useState<AskTarget>("right");
+  const [selectedImage, setSelectedImage] = useState<AskImage | null>(null);
+  const [pdfAsset, setPdfAsset] = useState<ArrayBuffer | null>(null);
+  const [pdfPage, setPdfPage] = useState(1);
+  const pdfRef = useRef<PdfPaneHandle>(null);
 
   const currentNode = activePath[activePath.length - 1];
+  const isPdf = store?.kind === "pdf";
   const parentNode = activePath.length >= 2 ? activePath[activePath.length - 2] : currentNode;
   const [parentContent, setParentContent] = useState<string | null>(null);
   const [childContent, setChildContent] = useState<string | null>(null);
@@ -128,6 +137,20 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
       setChildContent(null);
     }
   }, [currentNode, parentNode, store]);
+
+  useEffect(() => {
+    if (!isPdf || !store) {
+      setPdfAsset(null);
+      return;
+    }
+    let cancelled = false;
+    void store.getAsset().then((asset) => {
+      if (!cancelled) setPdfAsset(asset);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPdf, store, treeVersion]);
 
   // Raw markdown slice for display (badge + placeholder).
   // selectedText.text is DOM text (for highlight); offsets point into the raw
@@ -191,7 +214,9 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const edgeImagesFor = useCallback((node: Node | undefined) => {
     if (!node || !store || !node.parentId) return [];
     const edges = store.getNode(node.parentId)?.children ?? [];
-    return edges.find((e) => e.targetNodeId === node.id)?.images ?? [];
+    const edge = edges.find((e) => e.targetNodeId === node.id);
+    if (!edge) return [];
+    return [...(edge.crop ? [edge.crop] : []), ...(edge.images ?? [])];
   }, [store, treeVersion]);
 
   const parentEdgeImages = useMemo(() => edgeImagesFor(parentNode), [edgeImagesFor, parentNode]);
@@ -301,6 +326,17 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     setError(null);
     if (!store) return;
     const activeStore = store;
+    const crop = isPdf ? selectedImage ?? undefined : undefined;
+    const context =
+      isPdf && pdfRef.current ? await pdfRef.current.renderContextImages() : { images: [], pages: [] };
+    const { images: requestImages, legendItems } = assemblePdfImages({
+      crop,
+      attachments: images,
+      contextPages: context.pages,
+    });
+    const legend =
+      requestImages.length > 0 || context.pages.length > 0 ? buildImageLegend(legendItems) : "";
+
     const questionedNodeId =
       selectedText?.nodeId ||
       (freeAskTarget === "left" ? parentNode.id : currentNode.id);
@@ -310,6 +346,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     // Capture raw markdown slice for display before clearing selectedText
     const askedRawText = displayRawText || askedText;
     setSelectedText(null);
+    setSelectedImage(null);
 
     // Appendix 2: don't hard-truncate when $ is present (avoids unbalanced delimiter)
     // Appendix 4: put selection on its own paragraph so $$ $$ display math parses
@@ -331,6 +368,8 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
         startPos: askedStart,
         endPos: askedEnd,
         question,
+        ...(crop ? { crop } : {}),
+        ...(context.pages.length > 0 ? { contextPages: context.pages } : {}),
         ...(images.length > 0 ? { images } : {}),
       }, placeholder);
     } catch (e) {
@@ -350,13 +389,14 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           activeStore,
           promptConfig,
         );
-        const rendered = renderPrompt(slices, question, promptConfig.template);
+        const template = isPdf ? promptConfig.pdfTemplate ?? PDF_TEMPLATE : promptConfig.template;
+        const rendered = renderPrompt(slices, question, template);
         const answer = await llm.ask({
           question,
           contextSlices: slices,
           system: rendered.system,
-          user: rendered.user,
-          ...(images.length > 0 ? { images } : {}),
+          user: legend ? `${rendered.user}\n\n${legend}` : rendered.user,
+          ...(requestImages.length > 0 ? { images: requestImages } : {}),
         });
         await activeStore.updateContent(childId, answer);
         setChildContent(answer);
@@ -467,7 +507,18 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             })}
           </div>
         )}
-        {parentContent !== null && (
+        {isPdf && pdfAsset ? (
+          <PdfPane
+            ref={pdfRef}
+            asset={pdfAsset}
+            initialFraction={store.getReadingPosition(currentNode.id)}
+            onPageChange={(p, total) => {
+              setPdfPage(p);
+              store?.setReadingPosition(currentNode.id, total > 0 ? p / total : 0);
+            }}
+            onCrop={(crop) => setSelectedImage(crop)}
+          />
+        ) : parentContent !== null ? (
           <MarkdownPane
             content={parentContent}
             highlight={parentHighlight}
@@ -477,7 +528,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
             explored={parentExplored}
             scrollToHighlight={!!parentHighlight}
           />
-        )}
+        ) : null}
       </div>
 
       <div className="panel-divider" onMouseDown={handleDividerDown} />
@@ -568,7 +619,8 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onRequestSuggestions={requestSuggestions}
           onOpenSettings={onOpenSettings}
           onDebugSuggestions={() => setDebugSuggestion(true)}
-          onClearContext={() => setSelectedText(null)}
+          onClearContext={() => { setSelectedImage(null); setSelectedText(null); }}
+          contextImage={selectedImage}
         />
       </div>
     </div>
