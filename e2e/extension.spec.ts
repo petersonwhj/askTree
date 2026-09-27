@@ -47,6 +47,27 @@ test("clips a page into a new tab's forest", async ({ context }) => {
   expect(app.url()).toContain(`chrome-extension://${extensionId}/index.html`);
 });
 
+test("a local PDF focuses the open app tab and shows a notice", async ({ context }) => {
+  test.setTimeout(120_000);
+
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  const extensionId = new URL(worker.url()).host;
+
+  const app = await context.newPage();
+  await app.goto(`chrome-extension://${extensionId}/index.html`);
+  await app.waitForLoadState();
+  const openTabs = context.pages().length;
+
+  await worker.evaluate(async () => {
+    await (globalThis as { __asktreeClipActiveTab?: (t: unknown) => Promise<void> })
+      .__asktreeClipActiveTab?.({ id: 424242, url: "file:///home/me/scan.pdf", title: "scan.pdf" });
+  });
+
+  await expect(app.locator(".settings-modal")).toContainText("Download the PDF");
+  expect(context.pages().length).toBe(openTabs); // reused the open tab, opened no new one
+});
+
 test("the extension page can use WebAssembly (pdf.js decoders)", async ({ context }) => {
   test.setTimeout(120_000);
 

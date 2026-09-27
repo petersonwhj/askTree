@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { pdfFetchProblem } from "../url";
 
 describe("pdfFetchProblem", () => {
-  it("explains that local files cannot be fetched for a file: URL", () => {
+  it("tells the reader to download a local file, then open it", () => {
     const reason = pdfFetchProblem("file:///D:/books/%E4%B9%A6.pdf");
-    expect(reason).toContain("local file");
+    expect(reason).toContain("Download");
     expect(reason).toContain("📂");
   });
 
@@ -13,7 +13,9 @@ describe("pdfFetchProblem", () => {
     expect(pdfFetchProblem("http://localhost:5173/x.pdf")).toBeNull();
   });
 
-  it("rejects other schemes", () => {
-    expect(pdfFetchProblem("chrome://settings")).toContain("cannot be read");
+  it("tells the reader to download for other schemes", () => {
+    const reason = pdfFetchProblem("blob:https://example.com/abc");
+    expect(reason).toContain("Download");
+    expect(reason).toContain("📂");
   });
 });

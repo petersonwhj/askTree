@@ -1,5 +1,11 @@
 export interface ChromeLike {
-  runtime?: { id?: string };
+  runtime?: {
+    id?: string;
+    onMessage?: {
+      addListener(listener: (message: unknown) => void): void;
+      removeListener(listener: (message: unknown) => void): void;
+    };
+  };
   storage?: {
     session: {
       get(keys: string[]): Promise<Record<string, unknown>>;

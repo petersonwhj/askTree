@@ -17,15 +17,61 @@ function isPdf(url: string | undefined): boolean {
   }
 }
 
-/** Store one clip and open a tab pointed at it, so rapid clicks cannot collide. */
-async function stash(clip: PendingClip): Promise<string> {
-  const id = crypto.randomUUID();
+async function writeClip(id: string, clip: PendingClip): Promise<void> {
   const stored = await chrome.storage.session.get(["clips"]);
   const clips = (stored.clips as Record<string, PendingClip> | undefined) ?? {};
   clips[id] = clip;
   await chrome.storage.session.set({ clips });
+}
+
+/** Store one clip and open a tab pointed at it, so rapid clicks cannot collide. */
+async function stash(clip: PendingClip): Promise<string> {
+  const id = crypto.randomUUID();
+  await writeClip(id, clip);
   await chrome.tabs.create({ url: chrome.runtime.getURL(`${APP_PAGE}?clip=${id}`) });
   return id;
+}
+
+/**
+ * The open AskTree app tab, if any. Found via getContexts because reading
+ * tab.url needs the "tabs" permission, which we deliberately do not request.
+ */
+async function findAppTab(): Promise<{ tabId: number; windowId: number } | undefined> {
+  if (typeof chrome.runtime.getContexts !== "function") return undefined;
+  const appUrl = chrome.runtime.getURL(APP_PAGE);
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["TAB" as chrome.runtime.ContextType],
+  });
+  const context = contexts.find((c) => c.documentUrl?.startsWith(appUrl));
+  if (!context || context.tabId < 0) return undefined;
+  return { tabId: context.tabId, windowId: context.windowId };
+}
+
+/**
+ * Bring the AskTree tab forward and show a notice there, opening it only when
+ * none is open. Reusing the tab keeps a failed clip from piling up blank tabs.
+ */
+async function showNotice(message: string): Promise<void> {
+  const existing = await findAppTab();
+  if (!existing) {
+    await stash({ kind: "error", message });
+    return;
+  }
+  await chrome.tabs.update(existing.tabId, { active: true });
+  if (existing.windowId >= 0) {
+    await chrome.windows.update(existing.windowId, { focused: true });
+  }
+  try {
+    await chrome.tabs.sendMessage(existing.tabId, { type: "asktree-notice", message });
+    return;
+  } catch {
+    // The tab was still loading and not listening yet — reload it with the clip.
+  }
+  const id = crypto.randomUUID();
+  await writeClip(id, { kind: "error", message });
+  await chrome.tabs.update(existing.tabId, {
+    url: chrome.runtime.getURL(`${APP_PAGE}?clip=${id}`),
+  });
 }
 
 export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
@@ -34,12 +80,12 @@ export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
     if (isPdf(tab.url)) {
       const problem = pdfFetchProblem(tab.url);
       if (problem) {
-        await stash({ kind: "error", message: problem });
+        await showNotice(problem);
         return;
       }
       const response = await fetch(tab.url); // activeTab grants this origin
       if (!response.ok) {
-        await stash({ kind: "error", message: `Could not fetch this PDF (HTTP ${response.status}).` });
+        await showNotice(`Could not fetch this PDF (HTTP ${response.status}).`);
         return;
       }
       const bytes = await response.arrayBuffer();
@@ -62,7 +108,7 @@ export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
       | { error?: true; title?: string; markdown?: string }
       | undefined;
     if (!result || result.error || !result.markdown) {
-      await stash({ kind: "error", message: "Could not read this page's content." });
+      await showNotice("Could not read this page's content.");
       return;
     }
     await stash({
@@ -73,9 +119,9 @@ export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
   } catch (e) {
     const detail = (e as Error).message;
     const hint = /failed to fetch/i.test(detail)
-      ? " The extension could not reach it — a local file must be opened with the 📂 button instead."
+      ? " Download the file, then open it in AskTree with the 📂 button."
       : "";
-    await stash({ kind: "error", message: `Could not clip this page: ${detail}.${hint}` });
+    await showNotice(`Could not clip this page: ${detail}.${hint}`);
   }
 }
 

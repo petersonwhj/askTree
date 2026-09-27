@@ -127,6 +127,14 @@ type PendingClip =
   - pdf → read the asset Blob and `createDocument("", title, "pdf", blob)`.
   - error → show the shared load-failure dialog.
 
+An **error** clip (e.g. a `file://` or `blob:` PDF the extension cannot `fetch`) reuses the app
+instead of opening another tab: the background finds the open AskTree tab with
+`chrome.runtime.getContexts` (reading `tab.url` would require the `tabs` permission), focuses it,
+and posts an `asktree-notice` message that `ClipBridge` turns into the load-failure dialog. With
+no app tab open, or a tab that is not listening yet, it falls back to opening/reloading one with
+`?clip=<id>`. The message explains that the file cannot be loaded directly and suggests
+downloading the PDF and opening it with 📂.
+
 ## Shared load-failure dialog
 
 A single dialog (styled like `ConfirmModal`, one “OK” button) reports a document that could not
