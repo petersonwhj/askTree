@@ -91,11 +91,43 @@ Open **http://localhost:5173/askTree/** — note the `/askTree/` base path.
 | `pnpm test` | Run the unit tests (Vitest) |
 | `pnpm test:watch` | Re-run tests on change |
 | `pnpm test:e2e` | Run the browser end-to-end tests (Playwright) |
-| `pnpm lint` | Type-check core + web |
+| `pnpm lint` | Type-check core, web and the extension |
 | `pnpm build` | Build `@asktree/core` and the web app |
+| `pnpm plugin` | Build the Chrome extension into `apps/extension/dist` |
 | `pnpm deploy` | Build and publish to GitHub Pages |
 
 The end-to-end tests drive a real browser: install it once with `pnpm exec playwright install chromium`. PDF support needs pdf.js's WASM decoders, CMaps and worker; `pnpm dev` and `pnpm build` stage them into `public/pdfjs/` automatically (they are regenerated from the pinned `pdfjs-dist` and not committed).
+
+---
+
+## Chrome extension
+
+AskTree also ships as a Chrome extension (Manifest V3): click the toolbar icon and the page you are on is clipped into a **new AskTree tab**.
+
+- **Articles** are extracted to Markdown (Defuddle + Turndown) and opened as a new document.
+- **A PDF you opened directly** (`https://…/paper.pdf`) is fetched and opened as a PDF document you can read and crop-to-ask.
+- Every click opens a new tab, so you can clip several pages without losing your place.
+
+### Install (from a release)
+
+1. Download **`askTree-extension-v0.5.0.zip`** from [Releases](https://github.com/petersonwhj/askTree/releases).
+2. Unzip it somewhere permanent.
+3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and select the unzipped folder.
+
+### Build from source
+
+```bash
+pnpm install
+pnpm plugin        # → apps/extension/dist
+```
+
+Then load `apps/extension/dist` as an unpacked extension the same way. (On Windows + WSL, `pnpm plugin:win` also copies the build to a folder Chrome can reach.)
+
+### Notes
+
+- The extension is the same app running from its own origin, so it has its **own forest**, separate from the hosted web app. Move documents between them with **Export Tree / Import Tree**.
+- Configure your LLM in the extension's own tab (Settings), exactly like the web app.
+- The extension only reads `http(s)` URLs. A **local file** (`file://…`) cannot be read by an extension at all — open it with the **📂** button inside AskTree instead.
 
 ---
 
@@ -140,7 +172,9 @@ askTree/
 │   └── src/         #   TreeStore, LLMService, prompt building, storage adapter
 ├── apps/web/        # @asktree/web — Vite + React app
 │   └── src/         #   UI components, IndexedDB adapter, Markdown rendering
-└── tests/           # Vitest suites (core + web)
+├── apps/extension/  # @asktree/extension — Chrome (MV3) clipper
+│   └── src/         #   service worker, content script, PDF fetch, clip handoff
+└── tests/           # Vitest suites (core + web + extension)
 ```
 
 | Layer | Technology |
@@ -169,7 +203,7 @@ Builds the app and publishes `apps/web/dist` to the `gh-pages` branch. The app i
 
 - [x] **Web** — pure-frontend app, GitHub Pages deployment
 - [x] **Imports** — Word (.docx) to Markdown, and PDFs (read in place, crop-to-ask); unreadable pages warn
-- [ ] **Chrome** — web clipper (a page to Markdown, reusing the Defuddle/Turndown stack) and a PDF bridge into the existing open flow
+- [x] **Chrome** — web clipper (a page to Markdown via Defuddle/Turndown) plus direct-PDF import; shipped as an unpacked extension
 - [ ] **VS Code** — extension reusing `@asktree/core`
 
 ---

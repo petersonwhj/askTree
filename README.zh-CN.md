@@ -91,11 +91,43 @@ pnpm dev
 | `pnpm test` | 运行单元测试(Vitest) |
 | `pnpm test:watch` | 改动时自动重跑测试 |
 | `pnpm test:e2e` | 运行浏览器端到端测试(Playwright) |
-| `pnpm lint` | 类型检查 core + web |
+| `pnpm lint` | 类型检查 core、web 和扩展 |
 | `pnpm build` | 构建 `@asktree/core` 和 web 应用 |
+| `pnpm plugin` | 构建 Chrome 扩展,产物在 `apps/extension/dist` |
 | `pnpm deploy` | 构建并发布到 GitHub Pages |
 
 端到端测试会驱动真实浏览器:先执行一次 `pnpm exec playwright install chromium` 安装。PDF 支持依赖 pdf.js 的 WASM 解码器、CMap 与 worker;`pnpm dev` 与 `pnpm build` 会把它们自动复制到 `public/pdfjs/`(由固定版本的 `pdfjs-dist` 重新生成,不提交进仓库)。
+
+---
+
+## Chrome 扩展
+
+AskTree 也提供了 Chrome 扩展(Manifest V3):点击工具栏图标,当前页面就会被剪藏到一个**新的 AskTree 标签页**。
+
+- **网页文章**:提取为 Markdown(Defuddle + Turndown),作为新文档打开。
+- **直接打开的 PDF**(`https://…/paper.pdf`):抓取后作为 PDF 文档打开,可阅读、可框选提问。
+- 每次点击都会新开一个标签页,因此可以连续剪藏多个页面而不丢当前进度。
+
+### 安装(从 Release 下载)
+
+1. 到 [Releases](https://github.com/petersonwhj/askTree/releases) 下载 **`askTree-extension-v0.5.0.zip`**。
+2. 解压到一个固定目录。
+3. 打开 `chrome://extensions`,开启 **开发者模式**,点 **加载已解压的扩展程序**,选择解压后的文件夹。
+
+### 从源码构建
+
+```bash
+pnpm install
+pnpm plugin        # → apps/extension/dist
+```
+
+然后同样以"加载已解压的扩展程序"选择 `apps/extension/dist`。(Windows + WSL 环境下,`pnpm plugin:win` 还会把产物复制到 Chrome 能访问的目录。)
+
+### 说明
+
+- 扩展是同一个应用、运行在它自己的源(origin)下,因此拥有**独立的森林**,与网页版互不相通。用 **Export Tree / Import Tree** 在两者之间搬运文档。
+- 大模型需要在扩展自己的标签页里配置(Settings),和网页版一样。
+- 扩展只能读取 `http(s)` 地址。**本地文件**(`file://…`)任何扩展都读不了 —— 请改用 AskTree 里的 **📂** 按钮打开。
 
 ---
 
@@ -140,7 +172,9 @@ askTree/
 │   └── src/         #   TreeStore、LLMService、prompt 构建、存储适配器
 ├── apps/web/        # @asktree/web —— Vite + React 应用
 │   └── src/         #   UI 组件、IndexedDB 适配器、Markdown 渲染
-└── tests/           # Vitest 测试(core + web)
+├── apps/extension/  # @asktree/extension —— Chrome(MV3)剪藏扩展
+│   └── src/         #   service worker、content script、PDF 抓取、剪藏交接
+└── tests/           # Vitest 测试(core + web + 扩展)
 ```
 
 | 层 | 技术 |
@@ -169,7 +203,7 @@ pnpm deploy
 
 - [x] **Web** —— 纯前端应用,GitHub Pages 部署
 - [x] **导入** —— Word(.docx)转 Markdown;PDF 直接阅读 + 框选提问;无法解码的页会提示
-- [ ] **Chrome** —— 网页剪藏(页面转 Markdown,复用 Defuddle/Turndown 技术栈)+ 把 PDF 桥接进现有的打开流程
+- [x] **Chrome** —— 网页剪藏(页面经 Defuddle/Turndown 转 Markdown)+ 直链 PDF 导入;以「解压加载」的扩展形式发布
 - [ ] **VS Code** —— 复用 `@asktree/core` 的插件
 
 ---
