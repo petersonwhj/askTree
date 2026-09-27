@@ -485,3 +485,12 @@ body {
   cursor: pointer; font-size: 14px; line-height: 1;
 }
 
+
+.pdf-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.pdf-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; }
+.pdf-toolbar button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; cursor: pointer; }
+.pdf-page-indicator { font-size: 12px; color: #8b949e; }
+.pdf-canvas-wrap { position: relative; overflow: auto; flex: 1; padding: 8px 12px; }
+.pdf-canvas-wrap canvas { display: block; cursor: crosshair; }
+.pdf-crop-rect { position: absolute; border: 1px dashed #58a6ff; background: #58a6ff22; pointer-events: none; }
+.pdf-crop-ask { position: absolute; background: #238636; border: 1px solid #238636; color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
