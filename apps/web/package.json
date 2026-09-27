@@ -12,6 +12,7 @@
     "@types/katex": "^0.16.8",
     "@types/markdown-it": "^14.1.2",
     "dompurify": "^3.0",
+    "fflate": "0.8.3",
     "katex": "^0.17.0",
     "mammoth": "1.12.3",
     "markdown-it": "^14.2.0",
