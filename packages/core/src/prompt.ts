@@ -160,3 +160,24 @@ export function renderPrompt(
   const user = text.slice(delim + "User:".length).trim();
   return { system, user };
 }
+
+export type ImageLegendItem = { role: "crop" | "attachment" | "page"; page?: number };
+
+/** Deterministic description of the images attached to a request. Never user-editable. */
+export function buildImageLegend(items: ImageLegendItem[]): string {
+  const lines = items.map((item, i) => {
+    const n = i + 1;
+    if (item.role === "crop") {
+      return `${n}. Selected region — the learner cropped this from the document (this is what the question is about).`;
+    }
+    if (item.role === "page") {
+      return `${n}. Page ${item.page} — background only.`;
+    }
+    return `${n}. Attached image.`;
+  });
+  const header = "Attached images, in order:";
+  const footer = items.some((i) => i.role === "crop")
+    ? "The question refers to image 1; the other images are background only."
+    : "The question refers to the attached images.";
+  return [header, ...lines, footer].join("\n");
+}

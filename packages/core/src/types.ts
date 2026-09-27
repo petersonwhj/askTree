@@ -101,12 +101,21 @@ export interface AskOptions {
   images?: AskImage[];
 }
 
+export const PDF_TEMPLATE = `System: You are a study assistant helping a learner read a document they have shared as images. The first attached image is the region they selected; later images are full pages for context. Answer the question about the selected region, using the page images only as background. Be clear and concise, and reply in the same language as the question.
+
+User:
+The learner selected a region of a document and asks:
+
+{user_question}`;
+
 export interface PromptConfig {
   maxDepth: number;
   contextRadius: number[];
   template: string;
   /** Template for the "help me ask" suggested-questions feature. */
   suggestTemplate?: string;
+  /** Template used when the document is a PDF (image-based). */
+  pdfTemplate?: string;
 }
 
 /**
@@ -152,4 +161,5 @@ Within that passage I highlighted "{selected_text}".
 
 {user_question}`,
   suggestTemplate: SUGGEST_TEMPLATE,
+  pdfTemplate: PDF_TEMPLATE,
 };
