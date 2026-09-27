@@ -184,10 +184,13 @@ export class ForestStore {
    * second app tab (another ForestStore over the same storage) does not lose
    * entries it added since this one loaded.
    */
-  private async mutateIndex(mutate: (current: ForestIndex) => ForestIndex): Promise<void> {
+  private async mutateIndex(
+    mutate: (current: ForestIndex) => { trees: string[]; activeTreeId: string | null },
+  ): Promise<void> {
     const current =
       (await this.adapter.readForestIndex()) ?? { version: 1, activeTreeId: null, trees: [] };
-    this.index = mutate(current);
+    const next = mutate(current);
+    this.index = { version: 1, trees: next.trees, activeTreeId: next.activeTreeId };
     await this.adapter.writeForestIndex(this.index);
   }
 }
