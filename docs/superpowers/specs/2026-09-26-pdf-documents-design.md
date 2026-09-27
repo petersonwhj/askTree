@@ -108,8 +108,10 @@ assets?: Record<string, { mediaType: string; data?: string; file?: string }>;
 
 ## PDF rendering
 
-- Library: **`pdfjs-dist`** directly (not `react-pdf`, which requires React 19). Set
-  `GlobalWorkerOptions.workerSrc` from a Vite `?url` import of the worker module.
+- Library: **`pdfjs-dist`** directly (not `react-pdf`, which requires React 19). The worker is
+  served as a static file from `public/pdfjs/pdf.worker.min.mjs` (staged by the copy script),
+  not a Vite `?url` import: the dev URL for the latter is brittle and, when it fails, pdf.js
+  falls back to a fake worker that also fails and leaves the viewer broken.
 - New component `PdfPane` (left panel when the active document's `kind` is `"pdf"`):
   - renders the current page to a `<canvas>`, fitted to the pane width (scale ≈ 1.5 capped by
     a 1600 px longest edge);

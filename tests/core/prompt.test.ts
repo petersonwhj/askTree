@@ -114,4 +114,17 @@ describe("assemblePdfImages", () => {
     expect(images.map((i) => i.data)).toEqual(["C", "A"]);
     expect(legendItems.map((i) => i.role)).toEqual(["crop", "attachment", "page", "page", "page"]);
   });
+
+  it("includes the page renders that go with the page numbers", () => {
+    const crop = { mediaType: "image/png", data: "C" };
+    const page3 = { mediaType: "image/jpeg", data: "P3" };
+    const page2 = { mediaType: "image/jpeg", data: "P2" };
+    const { images, legendItems } = assemblePdfImages({
+      crop,
+      contextPages: [3, 2],
+      contextImages: [page3, page2],
+    });
+    expect(images.map((i) => i.data)).toEqual(["C", "P3", "P2"]);
+    expect(legendItems.map((i) => i.role)).toEqual(["crop", "page", "page"]);
+  });
 });

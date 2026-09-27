@@ -17,4 +17,6 @@ for (const dir of ["wasm", "cmaps", "standard_fonts"]) {
   await rm(target, { recursive: true, force: true });
   await cp(resolve(pkgRoot, dir), target, { recursive: true });
 }
-console.log(`[pdfjs-assets] copied wasm/cmaps/standard_fonts to ${out}`);
+// The worker as a plain static file, so it never depends on Vite's /@fs dev URLs.
+await cp(resolve(pkgRoot, "build/pdf.worker.min.mjs"), resolve(out, "pdf.worker.min.mjs"));
+console.log(`[pdfjs-assets] copied wasm/cmaps/standard_fonts/worker to ${out}`);

@@ -1,9 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { AskImage } from "@asktree/core";
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const PAGE_IMAGE_MAX_EDGE = 1600;
 const MAX_CANVAS = 6000;
@@ -21,6 +18,10 @@ const WRAP_PADDING_X = 12;
 // pdf.js needs to fetch its decoders, CMaps and standard fonts locally; the copy
 // script puts them under public/pdfjs (see apps/web/scripts/copy-pdfjs-assets.mjs).
 const ASSET_BASE = `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}pdfjs/`;
+
+// Served as a static file (see scripts/copy-pdfjs-assets.mjs) rather than a Vite
+// ?url import, whose dev URL can fail to load and break the whole viewer.
+pdfjs.GlobalWorkerOptions.workerSrc = `${ASSET_BASE}pdf.worker.min.mjs`;
 
 type Doc = Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>;
 type PdfPage = Awaited<ReturnType<Doc["getPage"]>>;

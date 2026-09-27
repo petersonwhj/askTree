@@ -55,8 +55,15 @@ test("opens a PDF, crops a region, asks with page context, and keeps it after re
   await expect(page.getByText("STUB ANSWER")).toBeVisible();
   expect(sentBody).toContain("Selected region");
   expect(sentBody).toContain("Page 1");
-  const imageCount = (sentBody.match(/image_url/g) ?? []).length;
-  expect(imageCount).toBeGreaterThanOrEqual(2);
+  // Count real image parts (the string "image_url" appears twice per image).
+  const payload = JSON.parse(sentBody);
+  const userMessage = payload.messages.find((m: { role: string }) => m.role === "user");
+  const imageParts = (userMessage.content as Array<{ type: string }>).filter(
+    (part) => part.type === "image_url",
+  ).length;
+  // The crop plus the current page and its neighbours.
+  expect(imageParts).toBe(3);
+  expect(sentBody).toContain("Page 1");
 
   await page.reload();
   await page.locator(".tree-node", { hasText: "what does this say?" }).click();
@@ -74,4 +81,22 @@ test("warns instead of showing a blank pane when the file is not a valid PDF", a
   await expect(page.locator(".doc-row .doc-kind")).toHaveText("pdf");
   await expect(page.locator(".pdf-error")).toBeVisible();
   await expect(page.locator(".pdf-error")).toContainText("not a valid PDF");
+});
+
+test("opening a Markdown file after a PDF keeps the app working", async ({ page }) => {
+  await page.goto("/");
+  const fileInput = 'header input[accept=".md,.markdown,.txt,.docx,.pdf"]';
+
+  await page.locator(fileInput).setInputFiles(FIXTURE);
+  await expect(page.locator(".pdf-page-total")).toHaveText("/ 2");
+
+  await page.locator(fileInput).setInputFiles({
+    name: "notes.md",
+    mimeType: "text/markdown",
+    buffer: Buffer.from("# Notes\n\nhello there"),
+  });
+
+  await expect(page.locator(".doc-row")).toHaveCount(2);
+  await expect(page.locator(".pdf-error")).toHaveCount(0);
+  await expect(page.getByText("hello there")).toBeVisible();
 });

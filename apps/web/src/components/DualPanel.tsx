@@ -333,6 +333,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
       crop,
       attachments: images,
       contextPages: context.pages,
+      contextImages: context.images,
     });
     const legend =
       requestImages.length > 0 || context.pages.length > 0 ? buildImageLegend(legendItems) : "";

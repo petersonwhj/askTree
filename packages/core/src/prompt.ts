@@ -186,6 +186,8 @@ export function assemblePdfImages(input: {
   crop?: AskImage;
   attachments?: AskImage[];
   contextPages: number[];
+  /** Page renders, aligned index-for-index with `contextPages`. */
+  contextImages?: AskImage[];
 }): { images: AskImage[]; legendItems: ImageLegendItem[] } {
   const items: ImageLegendItem[] = [];
   const images: AskImage[] = [];
@@ -197,8 +199,10 @@ export function assemblePdfImages(input: {
     images.push(attachment);
     items.push({ role: "attachment" });
   }
-  for (const page of input.contextPages) {
+  input.contextPages.forEach((page, index) => {
     items.push({ role: "page", page });
-  }
+    const pageImage = input.contextImages?.[index];
+    if (pageImage) images.push(pageImage);
+  });
   return { images, legendItems: items };
 }
