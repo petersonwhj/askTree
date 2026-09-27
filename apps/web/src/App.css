@@ -498,3 +498,19 @@ body {
 .context-badge.capture { display: flex; align-items: center; gap: 8px; }
 .context-capture { max-height: 56px; border-radius: 4px; border: 1px solid #30363d; }
 .context-capture-label { font-size: 12px; color: #e2b714; white-space: nowrap; }
+
+.pdf-page-input {
+  width: 52px; text-align: center; background: #0d1117; border: 1px solid #30363d;
+  border-radius: 6px; color: #c9d1d9; font-size: 12px; padding: 2px 4px;
+}
+.pdf-page-total { font-size: 12px; color: #8b949e; }
+.pdf-zoom { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.pdf-zoom-label { font-size: 12px; color: #8b949e; min-width: 38px; text-align: center; }
+.pdf-fit { font-size: 12px; padding: 2px 8px; }
+.pdf-crop-ask {
+  position: absolute; z-index: 5;
+  background: #1e1e3a; border: 1px solid #e2b714; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: #ccc; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5); white-space: nowrap;
+}
+.pdf-crop-ask:hover { background: #232340; }

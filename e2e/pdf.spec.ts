@@ -38,7 +38,7 @@ test("opens a PDF, crops a region, asks with page context, and keeps it after re
   await expect(canvas).toBeVisible();
   // The canvas exists before the document is parsed; wait until the page count
   // is known so the crop is drawn on a rendered page.
-  await expect(page.locator(".pdf-page-indicator")).toHaveText("1 / 2");
+  await expect(page.locator(".pdf-page-total")).toHaveText("/ 2");
 
   const box = (await canvas.boundingBox())!;
   await page.mouse.move(box.x + 40, box.y + 40);

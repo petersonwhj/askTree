@@ -7,11 +7,19 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const PDF_RENDER_SCALE = 1.5;
 const MAX_EDGE = 1600;
+const MAX_CANVAS = 6000;
 const JPEG_QUALITY = 0.8;
 const CROP_MAX_ZOOM = 3;
 const CROP_MAX_EDGE = 2000;
 const PAGE_CACHE_MAX = 10;
 const MIN_CROP = 8;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 6;
+const ZOOM_STEP = 1.25;
+
+// pdf.js needs to fetch its decoders, CMaps and standard fonts locally; the copy
+// script puts them under public/pdfjs (see apps/web/scripts/copy-pdfjs-assets.mjs).
+const ASSET_BASE = `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}pdfjs/`;
 
 type Doc = Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>;
 type PdfPage = Awaited<ReturnType<Doc["getPage"]>>;
@@ -46,20 +54,25 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageDraft, setPageDraft] = useState("1");
+  const [zoom, setZoom] = useState(1);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
-  const scaleFor = useCallback((baseWidth: number) => {
-    return Math.min(PDF_RENDER_SCALE, MAX_EDGE / baseWidth);
-  }, []);
+  const fitScale = useCallback(
+    (baseWidth: number, baseHeight: number) =>
+      Math.min(PDF_RENDER_SCALE, MAX_EDGE / baseWidth, MAX_CANVAS / baseWidth, MAX_CANVAS / baseHeight),
+    [],
+  );
 
   const renderPage = useCallback(async (pageNumber: number, doc: Doc, target: HTMLCanvasElement) => {
     const pdfPage = await doc.getPage(pageNumber);
     const base = pdfPage.getViewport({ scale: 1 });
-    const viewport = pdfPage.getViewport({ scale: scaleFor(base.width) });
+    const scale = fitScale(base.width, base.height) * zoom;
+    const viewport = pdfPage.getViewport({ scale });
     target.width = viewport.width;
     target.height = viewport.height;
     await pdfPage.render({ canvas: target, viewport }).promise;
-  }, [scaleFor]);
+  }, [fitScale, zoom]);
 
   // Captured once: the load effect must not depend on the fraction, or navigating
   // (which persists a new fraction) would reload the document.
@@ -71,7 +84,13 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     // hand it an ArrayBuffer that it would detach. Works for very large files
     // that exceed Chrome's per-value IndexedDB/structured-clone limits.
     const url = URL.createObjectURL(asset);
-    const task = pdfjs.getDocument({ url });
+    const task = pdfjs.getDocument({
+      url,
+      wasmUrl: `${ASSET_BASE}wasm/`,
+      cMapUrl: `${ASSET_BASE}cmaps/`,
+      cMapPacked: true,
+      standardFontDataUrl: `${ASSET_BASE}standard_fonts/`,
+    });
     (async () => {
       const doc = await task.promise;
       if (cancelled) return;
@@ -108,18 +127,37 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     }
   }, [page, total, renderPage]);
 
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  const jumpTo = (value: string) => {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n) || total === 0) {
+      setPageDraft(String(page));
+      return;
+    }
+    setPage(Math.min(total, Math.max(1, n)));
+  };
+
+  const zoomBy = (factor: number) => {
+    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z * factor)));
+  };
+
   const pageImage = useCallback(async (pageNumber: number, doc: Doc): Promise<AskImage> => {
     const cached = pageImageCache.current.get(pageNumber);
     if (cached) return cached;
 
     let canvas: HTMLCanvasElement;
-    if (pageNumber === page && canvasRef.current) {
-      canvas = canvasRef.current;
+    if (pageNumber === page && zoom === 1 && canvasRef.current) {
+      canvas = canvasRef.current; // on-screen canvas is already the base scale
     } else {
       const pdfPage = await doc.getPage(pageNumber);
       const base = pdfPage.getViewport({ scale: 1 });
-      canvas = pageCanvas(pdfPage, scaleFor(base.width));
-      const viewport = pdfPage.getViewport({ scale: scaleFor(base.width) });
+      // Context images always use the base (fit) scale, independent of the
+      // reader's zoom, so a zoomed-in view does not inflate the request.
+      canvas = pageCanvas(pdfPage, fitScale(base.width, base.height));
+      const viewport = pdfPage.getViewport({ scale: fitScale(base.width, base.height) });
       await pdfPage.render({ canvas, viewport }).promise;
     }
 
@@ -136,7 +174,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
       if (oldest !== undefined) cache.delete(oldest);
     }
     return image;
-  }, [scaleFor, page]);
+  }, [fitScale, page, zoom]);
 
   useImperativeHandle(ref, () => ({
     async renderContextImages() {
@@ -182,10 +220,13 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     if (!current || !doc || current.w < MIN_CROP || current.h < MIN_CROP) return;
 
     // Re-render just this region from the PDF at a higher scale so the crop is crisp.
+    // `current` is in on-screen canvas pixels (which already include the zoom), so
+    // the region maps back 1:1 onto the displayed scale.
     const k = Math.max(1, Math.min(CROP_MAX_ZOOM, CROP_MAX_EDGE / Math.max(current.w, current.h)));
     const pdfPage = await doc.getPage(page);
     const base = pdfPage.getViewport({ scale: 1 });
-    const viewport = pdfPage.getViewport({ scale: scaleFor(base.width) * k });
+    const displayScale = fitScale(base.width, base.height) * zoom;
+    const viewport = pdfPage.getViewport({ scale: displayScale * k });
 
     const out = document.createElement("canvas");
     out.width = Math.round(current.w * k);
@@ -207,9 +248,17 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
         <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
           ◀
         </button>
-        <span className="pdf-page-indicator">
-          {page} / {total || "…"}
-        </span>
+        <input
+          className="pdf-page-input"
+          aria-label="Page number"
+          value={pageDraft}
+          onChange={(e) => setPageDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") jumpTo(pageDraft);
+          }}
+          onBlur={() => jumpTo(pageDraft)}
+        />
+        <span className="pdf-page-total">/ {total || "…"}</span>
         <button
           type="button"
           onClick={() => setPage((p) => Math.min(total || p, p + 1))}
@@ -217,6 +266,12 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
         >
           ▶
         </button>
+        <div className="pdf-zoom">
+          <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
+          <span className="pdf-zoom-label">{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="Zoom in" onClick={() => zoomBy(ZOOM_STEP)}>+</button>
+          <button type="button" className="pdf-fit" onClick={() => setZoom(1)}>Fit width</button>
+        </div>
       </div>
       <div className="pdf-canvas-wrap" onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
         <canvas ref={canvasRef} />
@@ -233,7 +288,7 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { confirmCrop().catch((e) => console.error("CROP FAILED", e)); }}
             >
-              Ask about this
+              🔍 Ask about this
             </button>
           </>
         )}
