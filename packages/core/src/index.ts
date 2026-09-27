@@ -3,6 +3,7 @@ export { DEFAULT_PROMPT_CONFIG, SUGGEST_TEMPLATE, PDF_TEMPLATE } from "./types";
 
 export type { StorageAdapter } from "./storage-adapter";
 export { InMemoryStorageAdapter } from "./storage-adapter";
+export { IndexedDBStorageAdapter } from "./indexeddb-adapter";
 
 export { TreeStore } from "./tree-store";
 export { ForestStore } from "./forest-store";

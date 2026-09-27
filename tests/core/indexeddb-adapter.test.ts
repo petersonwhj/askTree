@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, it, expect, beforeEach } from "vitest";
 import type { ForestIndex } from "@asktree/core";
-import { IndexedDBStorageAdapter } from "../indexeddb-adapter";
+import { IndexedDBStorageAdapter } from "@asktree/core";
 
 // Each test gets a pristine in-memory database, so a test can open v1 and then
 // exercise the adapter's v2 upgrade.

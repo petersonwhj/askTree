@@ -10,8 +10,8 @@ import {
   type TreeStore,
   type TreeSummary,
   type DocumentKind,
+  IndexedDBStorageAdapter,
 } from "@asktree/core";
-import { IndexedDBStorageAdapter } from "../storage/indexeddb-adapter";
 
 interface TreeContextValue {
   store: TreeStore | null;

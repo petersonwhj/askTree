@@ -1,4 +1,5 @@
-import type { StorageAdapter, TreeJSON, ForestIndex } from "@asktree/core";
+import type { TreeJSON, ForestIndex } from "./types";
+import type { StorageAdapter } from "./storage-adapter";
 
 const DB_NAME = "asktree";
 const DB_VERSION = 2;
