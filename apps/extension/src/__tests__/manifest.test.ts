@@ -13,4 +13,11 @@ describe("extension manifest", () => {
     expect(manifest.permissions.sort()).toEqual(["activeTab", "scripting", "storage"]);
     expect(manifest.host_permissions).toBeUndefined();
   });
+
+  it("allows WebAssembly but not eval, for pdf.js's decoders", () => {
+    const csp = manifest.content_security_policy.extension_pages as string;
+    expect(csp).toContain("'wasm-unsafe-eval'");
+    expect(csp).not.toContain("'unsafe-eval'");
+    expect(csp).toContain("script-src 'self'");
+  });
 });

@@ -10,7 +10,8 @@
     "lint": "tsc -p packages/core/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit && tsc -p apps/extension/tsconfig.json --noEmit",
     "deploy": "pnpm build && gh-pages -d apps/web/dist",
     "build:extension": "pnpm --filter @asktree/core build && pnpm --filter @asktree/extension build",
-    "plugin": "pnpm build:extension"
+    "plugin": "pnpm build:extension",
+    "plugin:win": "pnpm build:extension && node apps/extension/scripts/install-to-windows.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

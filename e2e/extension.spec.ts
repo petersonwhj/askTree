@@ -46,3 +46,27 @@ test("clips a page into a new tab's forest", async ({ context }) => {
   await expect(app.locator(".doc-row")).toContainText("Clipped Article");
   expect(app.url()).toContain(`chrome-extension://${extensionId}/index.html`);
 });
+
+test("the extension page can use WebAssembly (pdf.js decoders)", async ({ context }) => {
+  test.setTimeout(120_000);
+
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  const extensionId = new URL(worker.url()).host;
+
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+  // The default MV3 CSP blocks WebAssembly, which silently breaks pdf.js's
+  // JBIG2/JPEG2000 decoders (scanned pages render blank). The manifest allows
+  // 'wasm-unsafe-eval' for exactly this.
+  const result = await page.evaluate(async () => {
+    try {
+      await WebAssembly.instantiate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
+      return "ok";
+    } catch (e) {
+      return `blocked: ${(e as Error).message}`;
+    }
+  });
+  expect(result).toBe("ok");
+});

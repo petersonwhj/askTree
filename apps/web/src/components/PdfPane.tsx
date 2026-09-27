@@ -101,17 +101,20 @@ export const PdfPane = forwardRef<PdfPaneHandle, Props>(function PdfPane(
     // instead of a page that silently looks blank.
     const collected: string[] = [];
     const originalWarn = console.warn;
-    console.warn = (...args: unknown[]) => {
+    const originalError = console.error;
+    const capture = (...args: unknown[]) => {
       collected.push(args.map((a) => String(a)).join(" "));
-      originalWarn(...args);
     };
+    console.warn = capture;
+    console.error = capture;
     try {
       await pdfPage.render({ canvas: target, viewport }).promise;
     } finally {
       console.warn = originalWarn;
+      console.error = originalError;
     }
     const undecoded = collected.find((m) =>
-      /ignoring XObject|Jbig2|JPEG2000|OpenJPEG|unknown image|Cannot decode/i.test(m),
+      /ignoring XObject|Jbig2|JPEG2000|OpenJPEG|unknown image|Cannot decode|WebAssembly|wasm-unsafe-eval|CompileError/i.test(m),
     );
     setPageWarning(
       undecoded
