@@ -1,11 +1,12 @@
 import type { StorageAdapter, TreeJSON, ForestIndex } from "@asktree/core";
 
 const DB_NAME = "asktree";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const FOREST_KEY = "forest_meta";
 const TREE_PREFIX = "tree:";
 const CONTENT_STORE = "node_contents";
 const META_STORE = "meta";
+const ASSET_STORE = "assets";
 
 export class IndexedDBStorageAdapter implements StorageAdapter {
   private db: IDBDatabase | null = null;
@@ -23,6 +24,9 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
         }
         if (!db.objectStoreNames.contains(META_STORE)) {
           db.createObjectStore(META_STORE);
+        }
+        if (!db.objectStoreNames.contains(ASSET_STORE)) {
+          db.createObjectStore(ASSET_STORE);
         }
       };
 
@@ -128,12 +132,43 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
     });
   }
 
+  async readAsset(id: string): Promise<ArrayBuffer | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(ASSET_STORE, "readonly");
+      const req = tx.objectStore(ASSET_STORE).get(id);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async writeAsset(id: string, data: ArrayBuffer): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(ASSET_STORE, "readwrite");
+      tx.objectStore(ASSET_STORE).put(data, id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(ASSET_STORE, "readwrite");
+      tx.objectStore(ASSET_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   async clear(): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([CONTENT_STORE, META_STORE], "readwrite");
+      const tx = db.transaction([CONTENT_STORE, META_STORE, ASSET_STORE], "readwrite");
       tx.objectStore(CONTENT_STORE).clear();
       tx.objectStore(META_STORE).clear();
+      tx.objectStore(ASSET_STORE).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

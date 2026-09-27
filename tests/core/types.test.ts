@@ -3,6 +3,15 @@ import type { Node, Edge, TreeJSON } from "@asktree/core";
 import { InMemoryStorageAdapter } from "@asktree/core";
 
 describe("types", () => {
+  it("stores, reads and deletes assets", async () => {
+    const a = new InMemoryStorageAdapter();
+    const data = new Uint8Array([1, 2, 3]).buffer;
+    await a.writeAsset("asset-1", data);
+    expect(new Uint8Array((await a.readAsset("asset-1"))!)).toEqual(new Uint8Array([1, 2, 3]));
+    await a.deleteAsset("asset-1");
+    expect(await a.readAsset("asset-1")).toBeNull();
+  });
+
   it("should construct a valid Node", () => {
     const node: Node = {
       id: "n1", title: "Root", type: "article", status: "question",

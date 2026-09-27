@@ -1,7 +1,14 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { ForestIndex } from "@asktree/core";
 import { IndexedDBStorageAdapter } from "../indexeddb-adapter";
+
+// Each test gets a pristine in-memory database, so a test can open v1 and then
+// exercise the adapter's v2 upgrade.
+beforeEach(() => {
+  globalThis.indexedDB = new IDBFactory();
+});
 
 describe("IndexedDBStorageAdapter", () => {
   it("should write and read node content", async () => {
@@ -41,6 +48,38 @@ describe("IndexedDBStorageAdapter", () => {
     const ids = await adapter.listNodeIds();
     expect(ids).toContain("a");
     expect(ids).toContain("b");
+  });
+
+  it("should write, read and delete an asset", async () => {
+    const adapter = new IndexedDBStorageAdapter();
+    await adapter.writeAsset("asset-1", new Uint8Array([9, 8, 7]).buffer);
+    expect(new Uint8Array((await adapter.readAsset("asset-1"))!)).toEqual(new Uint8Array([9, 8, 7]));
+    await adapter.deleteAsset("asset-1");
+    expect(await adapter.readAsset("asset-1")).toBeNull();
+  });
+
+  it("adds the assets store without dropping existing data", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("asktree", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("node_contents")) db.createObjectStore("node_contents");
+        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("node_contents", "readwrite");
+        tx.objectStore("node_contents").put("old content", "n1");
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    const adapter = new IndexedDBStorageAdapter();
+    expect(await adapter.readNodeContent("n1")).toBe("old content");
+    await adapter.writeAsset("a1", new Uint8Array([1]).buffer);
+    expect(await adapter.readAsset("a1")).not.toBeNull();
   });
 
   it("should clear all data", async () => {
