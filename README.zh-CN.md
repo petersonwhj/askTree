@@ -90,9 +90,12 @@ pnpm dev
 | `pnpm dev` | 启动开发服务器(Vite) |
 | `pnpm test` | 运行单元测试(Vitest) |
 | `pnpm test:watch` | 改动时自动重跑测试 |
+| `pnpm test:e2e` | 运行浏览器端到端测试(Playwright) |
 | `pnpm lint` | 类型检查 core + web |
 | `pnpm build` | 构建 `@asktree/core` 和 web 应用 |
 | `pnpm deploy` | 构建并发布到 GitHub Pages |
+
+端到端测试会驱动真实浏览器:先执行一次 `pnpm exec playwright install chromium` 安装。PDF 支持依赖 pdf.js 的 WASM 解码器、CMap 与 worker;`pnpm dev` 与 `pnpm build` 会把它们自动复制到 `public/pdfjs/`(由固定版本的 `pdfjs-dist` 重新生成,不提交进仓库)。
 
 ---
 
@@ -166,8 +169,8 @@ pnpm deploy
 
 - [x] **Web** —— 纯前端应用,GitHub Pages 部署
 - [x] **导入** —— Word(.docx)转 Markdown;PDF 直接阅读 + 框选提问;无法解码的页会提示
+- [ ] **Chrome** —— 网页剪藏(页面转 Markdown,复用 Defuddle/Turndown 技术栈)+ 把 PDF 桥接进现有的打开流程
 - [ ] **VS Code** —— 复用 `@asktree/core` 的插件
-- [ ] **Chrome** —— 浏览器剪藏插件
 
 ---
 

@@ -90,9 +90,12 @@ Open **http://localhost:5173/askTree/** — note the `/askTree/` base path.
 | `pnpm dev` | Start the dev server (Vite) |
 | `pnpm test` | Run the unit tests (Vitest) |
 | `pnpm test:watch` | Re-run tests on change |
+| `pnpm test:e2e` | Run the browser end-to-end tests (Playwright) |
 | `pnpm lint` | Type-check core + web |
 | `pnpm build` | Build `@asktree/core` and the web app |
 | `pnpm deploy` | Build and publish to GitHub Pages |
+
+The end-to-end tests drive a real browser: install it once with `pnpm exec playwright install chromium`. PDF support needs pdf.js's WASM decoders, CMaps and worker; `pnpm dev` and `pnpm build` stage them into `public/pdfjs/` automatically (they are regenerated from the pinned `pdfjs-dist` and not committed).
 
 ---
 
@@ -166,8 +169,8 @@ Builds the app and publishes `apps/web/dist` to the `gh-pages` branch. The app i
 
 - [x] **Web** — pure-frontend app, GitHub Pages deployment
 - [x] **Imports** — Word (.docx) to Markdown, and PDFs (read in place, crop-to-ask); unreadable pages warn
+- [ ] **Chrome** — web clipper (a page to Markdown, reusing the Defuddle/Turndown stack) and a PDF bridge into the existing open flow
 - [ ] **VS Code** — extension reusing `@asktree/core`
-- [ ] **Chrome** — browser clipping extension
 
 ---
 
