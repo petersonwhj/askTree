@@ -116,7 +116,7 @@ describe("AppHeader forest actions", () => {
 
     const { container } = render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
     const input = container.querySelector(
-      'header input[accept=".md,.markdown,.txt,.docx"]',
+      'header input[accept=".md,.markdown,.txt,.docx,.pdf"]',
     ) as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { files: [new File(["x"], "My Article.docx")] } });

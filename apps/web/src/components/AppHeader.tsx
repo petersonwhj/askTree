@@ -79,7 +79,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept=".md,.markdown,.txt,.docx"
+          accept=".md,.markdown,.txt,.docx,.pdf"
           style={{ display: "none" }}
           onChange={handleFileSelect}
         />

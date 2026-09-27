@@ -5,19 +5,25 @@ export type OpenDocument = (
   content: string,
   title: string,
   kind?: DocumentKind,
+  asset?: ArrayBuffer,
 ) => Promise<void>;
 
 const DOCX = /\.docx$/i;
 const DOC = /\.doc$/i;
+const PDF = /\.pdf$/i;
 const MARKDOWN = /\.(md|markdown|txt)$/i;
 
 export function documentTitle(fileName: string): string {
-  return fileName.replace(/\.(md|markdown|txt|docx)$/i, "");
+  return fileName.replace(/\.(md|markdown|txt|docx|pdf)$/i, "");
 }
 
 export async function openDocumentFile(file: File, create: OpenDocument): Promise<void> {
   const title = documentTitle(file.name) || "Untitled";
 
+  if (PDF.test(file.name)) {
+    await create("", title, "pdf", await file.arrayBuffer());
+    return;
+  }
   if (DOCX.test(file.name)) {
     await create(await docxToMarkdown(file), title, "docx");
     return;

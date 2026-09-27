@@ -275,7 +275,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           <input
             ref={emptyFileRef}
             type="file"
-            accept=".md,.markdown,.txt,.docx"
+            accept=".md,.markdown,.txt,.docx,.pdf"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];
