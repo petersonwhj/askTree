@@ -1,4 +1,5 @@
 import { IndexedDBStorageAdapter } from "@asktree/core";
+import { pdfFetchProblem } from "./url";
 
 const APP_PAGE = "index.html";
 
@@ -31,7 +32,16 @@ export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
   if (!tab.id || !tab.url) return;
   try {
     if (isPdf(tab.url)) {
+      const problem = pdfFetchProblem(tab.url);
+      if (problem) {
+        await stash({ kind: "error", message: problem });
+        return;
+      }
       const response = await fetch(tab.url); // activeTab grants this origin
+      if (!response.ok) {
+        await stash({ kind: "error", message: `Could not fetch this PDF (HTTP ${response.status}).` });
+        return;
+      }
       const bytes = await response.arrayBuffer();
       const adapter = new IndexedDBStorageAdapter();
       const assetId = crypto.randomUUID();
@@ -61,7 +71,11 @@ export async function clipActiveTab(tab: chrome.tabs.Tab): Promise<void> {
       markdown: result.markdown,
     });
   } catch (e) {
-    await stash({ kind: "error", message: `Could not clip this page: ${(e as Error).message}` });
+    const detail = (e as Error).message;
+    const hint = /failed to fetch/i.test(detail)
+      ? " The extension could not reach it — a local file must be opened with the 📂 button instead."
+      : "";
+    await stash({ kind: "error", message: `Could not clip this page: ${detail}.${hint}` });
   }
 }
 
