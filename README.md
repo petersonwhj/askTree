@@ -18,6 +18,16 @@ It is a local-first study tool: load a Markdown, Word or PDF document, highlight
 
 No server, no account, no analytics. Articles, answers and the tree live in your browser (IndexedDB), and you choose which LLM to use.
 
+## A method, made into a tool
+
+A chat window hands you an answer. AskTree encodes a *method* for getting to the bottom of something hard — and a tool is only as good as the method it turns into a habit.
+
+Start from one dense article and keep drilling. Every answer is a branch; you stop a branch when its leaves are things you already understand, and you mark each page you have truly got as **resolved** — it turns green. Then step back and work your way up: whenever a green page rests on something still gray, go back down and fill that gap.
+
+When the whole tree is green, you have not just read the article — you have built a connected, bottom-up understanding of everything around it.
+
+And you don't have to know how to ask. In the AI era the model can propose the questions: **💡** offers three good ones for the passage you are on, so a vague "I don't get this" becomes a precise line of inquiry.
+
 ---
 
 ## Why
