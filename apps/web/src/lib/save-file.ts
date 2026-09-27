@@ -12,11 +12,20 @@ export interface SaveFileOptions {
  * (AbortError) is a no-op.
  */
 export async function saveTextFile(contents: string, opts: SaveFileOptions): Promise<void> {
+  await saveFile(contents, opts);
+}
+
+/** Save binary contents (e.g. a zip) with the same picker-or-download behaviour. */
+export async function saveBlob(blob: Blob, opts: SaveFileOptions): Promise<void> {
+  await saveFile(blob, opts);
+}
+
+async function saveFile(data: string | Blob, opts: SaveFileOptions): Promise<void> {
   const { suggestedName, description, mimeType, extensions } = opts;
   const picker = (window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<{
       createWritable: () => Promise<{
-        write: (data: string) => Promise<void>;
+        write: (data: string | Blob) => Promise<void>;
         close: () => Promise<void>;
       }>;
     }>;
@@ -29,7 +38,7 @@ export async function saveTextFile(contents: string, opts: SaveFileOptions): Pro
         types: [{ description, accept: { [mimeType]: extensions } }],
       });
       const writable = await handle.createWritable();
-      await writable.write(contents);
+      await writable.write(data);
       await writable.close();
       return;
     } catch (e) {
@@ -38,7 +47,7 @@ export async function saveTextFile(contents: string, opts: SaveFileOptions): Pro
     }
   }
 
-  const blob = new Blob([contents], { type: mimeType });
+  const blob = typeof data === "string" ? new Blob([data], { type: mimeType }) : data;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

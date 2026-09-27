@@ -1,8 +1,11 @@
 import { useRef, useCallback } from "react";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "@asktree/core";
 import { useTree } from "../hooks/useTree";
-import { saveTextFile } from "../lib/save-file";
+import { saveTextFile, saveBlob } from "../lib/save-file";
 import { sanitizeFilename } from "../lib/filename";
 import { openDocumentFile } from "../lib/open-document";
+import { bundleToZip, zipToBundle, isZip } from "../lib/zip";
+import { chooseExportFormat } from "../lib/export-format";
 
 interface Props { onSettings: () => void; onToggleSidebar: () => void; }
 
@@ -13,10 +16,20 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
 
   const handleImport = async () => {
     const input = importRef.current;
-    if (!input?.files?.[0]) return;
+    const file = input?.files?.[0];
+    if (!file) return;
     try {
-      const text = await input.files[0].text();
-      await importDocument(JSON.parse(text));
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (isZip(bytes)) {
+        const { bundle, assets } = await zipToBundle(bytes);
+        for (const [id, buffer] of Object.entries(assets)) {
+          const entry = bundle.assets?.[id];
+          if (entry) entry.data = arrayBufferToBase64(buffer);
+        }
+        await importDocument(bundle);
+      } else {
+        await importDocument(JSON.parse(new TextDecoder().decode(bytes)));
+      }
       input.value = "";
     } catch (e) { alert("Import failed: " + (e as Error).message); }
   };
@@ -25,9 +38,33 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
     if (!activeTreeId) return;
     const bundle = await exportDocument(activeTreeId);
     if (!bundle) return;
-    const json = JSON.stringify(bundle, null, 2);
     const title = trees.find((t) => t.id === activeTreeId)?.title ?? "asktree-tree";
-    await saveTextFile(json, {
+    const kind = bundle.tree.kind ?? "markdown";
+    const assetBytes = Object.values(bundle.assets ?? {}).reduce(
+      (n, entry) => n + Math.floor(((entry.data?.length ?? 0) * 3) / 4),
+      0,
+    );
+
+    if (chooseExportFormat(kind, assetBytes) === "zip") {
+      const raw: Record<string, ArrayBuffer> = {};
+      const zipBundle = { ...bundle, assets: { ...(bundle.assets ?? {}) } };
+      for (const [id, entry] of Object.entries(zipBundle.assets)) {
+        if (!entry.data) continue;
+        raw[id] = base64ToArrayBuffer(entry.data);
+        zipBundle.assets[id] = { mediaType: entry.mediaType, file: `assets/${id}` };
+      }
+      const zipBytes = bundleToZip(zipBundle, raw);
+      await saveBlob(new Blob([zipBytes as unknown as BlobPart], { type: "application/zip" }), {
+        suggestedName: `${sanitizeFilename(title)}.zip`,
+        description: "Zip",
+        mimeType: "application/zip",
+        extensions: [".zip"],
+      });
+      alert("This document is large, so it was exported as a .zip.");
+      return;
+    }
+
+    await saveTextFile(JSON.stringify(bundle, null, 2), {
       suggestedName: `${sanitizeFilename(title)}.json`,
       description: "JSON",
       mimeType: "application/json",
@@ -85,7 +122,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
         />
         <button onClick={handleExport} disabled={activeTreeId === null} title="Export the active document as JSON">Export Tree</button>
         <button onClick={() => importRef.current?.click()} title="Import a document (JSON); appends to the forest">Import Tree</button>
-        <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
+        <input ref={importRef} type="file" accept=".json,.zip" style={{ display: "none" }} onChange={handleImport} />
         <button onClick={onSettings}>Settings</button>
       </div>
     </header>

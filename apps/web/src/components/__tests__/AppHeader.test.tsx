@@ -93,10 +93,11 @@ describe("AppHeader forest actions", () => {
     mocks.ctx = { ...baseCtx(), importDocument };
 
     const { container } = render(<AppHeader onSettings={() => {}} onToggleSidebar={() => {}} />);
-    const input = container.querySelector('input[accept=".json"]') as HTMLInputElement;
-    const file = new File(["{}"], "tree.json", { type: "application/json" });
-    Object.defineProperty(file, "text", {
-      value: () => Promise.resolve('{"version":1,"tree":{"nodes":{}},"contents":{}}'),
+    const input = container.querySelector('input[accept=".json,.zip"]') as HTMLInputElement;
+    const json = '{"version":1,"tree":{"nodes":{}},"contents":{}}';
+    const file = new File([json], "tree.json", { type: "application/json" });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: async () => new TextEncoder().encode(json).buffer,
     });
     fireEvent.change(input, { target: { files: [file] } });
 
