@@ -330,8 +330,18 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
     if (!store) return;
     const activeStore = store;
 
+    // A crop can only come from the PDF viewer, which renders the document's own
+    // root page in the LEFT pane, so such a question belongs to that page. Without
+    // this it falls through to `freeAskTarget` (default "right" - the currently
+    // active node), so a second crop lands under the previous answer instead of
+    // beside it. The target then stops looking like a PDF-root question, so the
+    // crop is dropped and the question is asked as plain text about the answer.
+    // The Left/Right toggle cannot rescue it either: staging a crop replaces the
+    // free-ask row with the context row, which carries no toggle.
+    const cropOwnerId = selectedImage && showPdf && parentNode ? parentNode.id : null;
     const questionedNodeId =
       selectedText?.nodeId ||
+      cropOwnerId ||
       (freeAskTarget === "left" ? parentNode.id : currentNode.id);
     // Only a question about the PDF document's own root page is an image ask.
     // Anything deeper is an ordinary Markdown answer and uses the text flow —
