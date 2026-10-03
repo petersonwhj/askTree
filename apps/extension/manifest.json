@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AskTree",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Clip a page or PDF into an AskTree forest and ask about it.",
   "action": {
     "default_title": "Clip to AskTree"
