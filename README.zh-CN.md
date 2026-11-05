@@ -107,7 +107,7 @@ AskTree 也提供了 Chrome 扩展(Manifest V3):点击工具栏图标,当前页�
 
 ### 安装(从 Release 下载)
 
-1. 到 [Releases](https://github.com/petersonwhj/askTree/releases) 下载 **`askTree-extension-v0.5.0.zip`**。
+1. 到 [Releases](https://github.com/petersonwhj/askTree/releases) 下载 **`askTree-extension-v0.5.1.zip`**。
 2. 解压到一个固定目录。
 3. 打开 `chrome://extensions`,开启 **开发者模式**,点 **加载已解压的扩展程序**,选择解压后的文件夹。
 
@@ -125,6 +125,25 @@ pnpm plugin        # → apps/extension/dist
 - 扩展是同一个应用、运行在它自己的源(origin)下,因此拥有**独立的森林**,与网页版互不相通。用 **Export Tree / Import Tree** 在两者之间搬运文档。
 - 大模型需要在扩展自己的标签页里配置(Settings),和网页版一样。
 - 扩展只能读取 `http(s)` 地址。**本地文件**(`file://…`)任何扩展都读不了 —— 请改用 AskTree 里的 **📂** 按钮打开。
+
+---
+
+## DeepSeek Harness 插件
+
+AskTree 也可以作为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web GUI 面板运行:同一个阅读器、同一棵问题树、同一套提问流程,只是从浏览器标签页搬到了 Harness 的侧边栏 —— 复用本仓库的应用与 `@asktree/core`,而不是重写一份。
+
+- 划词提问、递归下钻、建议问题、Prompt 调试、多文档森林、LaTeX、`.docx` 与图片提问,在面板里都能用。
+- PDF 框选提问也能用 —— 插件的 host 半负责提供阅读器所需的 pdf.js 运行时资源。
+- 和 Chrome 扩展一样,它有自己的森林与 LLM 设置。
+
+插件位于 [`apps/dsh-plugin`](apps/dsh-plugin),尚未发布到 npm。需要在仓库内构建,再把构建产物安装到 Harness profile:
+
+```bash
+pnpm install
+pnpm --filter asktree-dsh build
+```
+
+安装步骤、如何验证以及目前的限制,见 [`apps/dsh-plugin/README.md`](apps/dsh-plugin/README.md)。
 
 ---
 
@@ -201,6 +220,7 @@ pnpm deploy
 - [x] **Web** —— 纯前端应用,GitHub Pages 部署
 - [x] **导入** —— Word(.docx)转 Markdown;PDF 直接阅读 + 框选提问;无法解码的页会提示
 - [x] **Chrome** —— 网页剪藏(页面经 Defuddle/Turndown 转 Markdown)+ 直链 PDF 导入;以「解压加载」的扩展形式发布
+- [x] **DeepSeek Harness** —— Web GUI 面板,复用 `@asktree/core`;可在 Harness profile 内运行,尚未发布到 npm
 - [ ] **VS Code** —— 复用 `@asktree/core` 的插件
 
 ---

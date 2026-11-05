@@ -107,7 +107,7 @@ AskTree also ships as a Chrome extension (Manifest V3): click the toolbar icon a
 
 ### Install (from a release)
 
-1. Download **`askTree-extension-v0.5.0.zip`** from [Releases](https://github.com/petersonwhj/askTree/releases).
+1. Download **`askTree-extension-v0.5.1.zip`** from [Releases](https://github.com/petersonwhj/askTree/releases).
 2. Unzip it somewhere permanent.
 3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and select the unzipped folder.
 
@@ -125,6 +125,25 @@ Then load `apps/extension/dist` as an unpacked extension the same way. (On Windo
 - The extension is the same app running from its own origin, so it has its **own forest**, separate from the hosted web app. Move documents between them with **Export Tree / Import Tree**.
 - Configure your LLM in the extension's own tab (Settings), exactly like the web app.
 - The extension only reads `http(s)` URLs. A **local file** (`file://…`) cannot be read by an extension at all — open it with the **📂** button inside AskTree instead.
+
+---
+
+## DeepSeek Harness plugin
+
+AskTree also runs inside [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) as a Web GUI panel: the same reader, the same tree, the same ask flow, in the Harness sidebar instead of a browser tab. It reuses this repository's application and `@asktree/core` rather than reimplementing them.
+
+- Select-to-ask, recursive drill-down, suggested questions, Prompt Debug, the document forest, LaTeX, `.docx` and image asks all work in the panel.
+- PDF crop-to-ask works too — the plugin's host half serves the pdf.js runtime assets the viewer needs.
+- It keeps its own forest and LLM settings, like the Chrome extension.
+
+The plugin lives in [`apps/dsh-plugin`](apps/dsh-plugin) and is not published to npm yet. Build it from this repository, then install the built directory into a Harness profile:
+
+```bash
+pnpm install
+pnpm --filter asktree-dsh build
+```
+
+See [`apps/dsh-plugin/README.md`](apps/dsh-plugin/README.md) for the install steps, how to verify it, and the current limits.
 
 ---
 
@@ -201,6 +220,7 @@ Builds the app and publishes `apps/web/dist` to the `gh-pages` branch. The app i
 - [x] **Web** — pure-frontend app, GitHub Pages deployment
 - [x] **Imports** — Word (.docx) to Markdown, and PDFs (read in place, crop-to-ask); unreadable pages warn
 - [x] **Chrome** — web clipper (a page to Markdown via Defuddle/Turndown) plus direct-PDF import; shipped as an unpacked extension
+- [x] **DeepSeek Harness** — Web GUI panel reusing `@asktree/core`; runs inside a Harness profile, not published to npm yet
 - [ ] **VS Code** — extension reusing `@asktree/core`
 
 ---
