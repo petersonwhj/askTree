@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>asktree-dsh panel harness</title>
+    <style>
+      /* Mimic the Harness main-panel seat: a full-height flex container. */
+      html, body { margin: 0; height: 100%; }
+      #seat { height: 100%; display: flex; flex-direction: column; }
+    </style>
+  </head>
+  <body>
+    <div id="seat"><div id="root" style="display:flex;flex:1;min-height:0"></div></div>
+    <script>
+      // Stand-in for the Harness client-module loader: capture the row and let the
+      // harness bundle hand the factory the shared module table.
+      window.__ModuleLoader__ = { load: function (row) { window.__ASK_ROW__ = row } };
+    </script>
+    <script src="./client.js"></script>
+    <script src="./harness.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+# asktree-dsh bundle patch.
+#
+# One row mounts the package. The row's specifier is the BARE package name, which
+# is what makes the browser half attach: the DSH client-module scan only binds a
+# `dsh.client` half to the Loader row that names the package itself.
+#
+# `config.devWatch` (default false) asks the host half to poll the built
+# client bundle and publish rebuilds through `ctx.clientModules.rebuilt()`, so a
+# rebuilt panel reaches an open page without restarting the Harness. Leave it off
+# for normal use; a profile layer can switch it on without touching this file.
+- insert:
+    - id: asktree
+      name: 'asktree-dsh'

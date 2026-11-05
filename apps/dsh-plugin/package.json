@@ -1,0 +1,49 @@
+{
+  "name": "asktree-dsh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AskTree - a tree-of-questions study panel for the DeepSeek Harness Web GUI",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify-client.mjs && node scripts/verify-host.mjs",
+    "build:harness": "node scripts/build-harness.mjs",
+    "e2e:setup": "node scripts/setup-browser-libs.mjs",
+    "test:e2e": "node scripts/build-harness.mjs && playwright test",
+    "test": "node scripts/build.mjs && pnpm verify && node scripts/build-harness.mjs && playwright test",
+    "sync:win": "node scripts/sync-windows.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^18.3",
+    "@types/react-dom": "^18.3",
+    "@vitejs/plugin-react": "^4.0",
+    "fake-indexeddb": "^6.0",
+    "jsdom": "^25.0",
+    "katex": "^0.17.0",
+    "postcss": "^8.4.47",
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "vite": "^5.0"
+  }
+}
