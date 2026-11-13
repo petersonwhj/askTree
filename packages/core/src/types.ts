@@ -105,7 +105,7 @@ export interface AskOptions {
   images?: AskImage[];
 }
 
-export const PDF_TEMPLATE = `System: You are a study assistant helping a learner read a document they have shared as images. The first attached image is the region they selected; later images are full pages for context. Answer the question about the selected region, using the page images only as background. Be clear and concise, and reply in the same language as the question.
+export const PDF_TEMPLATE = `System: You are a study assistant helping a learner read a document they have shared as images. The first attached image is the region they selected; later images are full pages for context. Answer the question about the selected region, using the page images only as background. Be clear and concise. Write the whole answer in the language the learner asked the question in, even when the document shown in the images is in another language; never switch to the document's language.
 
 User:
 The learner selected a region of a document and asks:
@@ -140,7 +140,9 @@ The learner is focused on "{selected_text}".
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   maxDepth: 3,
   contextRadius: [200, 100, 50],
-  template: `System: You are a study assistant. A learner is reading an article and drilling into it with follow-up questions. Answer the question using the context below. Focus on the highlighted term — marked with «» in the passage — and answer user's question regarding the highlighted term; treat the earlier trail only as background for how the learner arrived, not as the subject. Be clear and concise, define terms in plain language, and build the explanation up step by step. Write every formula in LaTeX between dollar signs: $$...$$ for display math and $...$ for inline math. Always wrap display environments such as \\begin{align}...\\end{align} in $$...$$ as well. If the context is not enough to answer confidently, say what is specifically missing rather than guessing. Reply in the same language as the question.
+  template: `System: You are a study assistant. A learner is reading an article and drilling into it with follow-up questions. Answer the question using the context below. Focus on the highlighted term — marked with «» in the passage — and answer user's question regarding the highlighted term; treat the earlier trail only as background for how the learner arrived, not as the subject. Be clear and concise, define terms in plain language, and build the explanation up step by step. Write every formula in LaTeX between dollar signs: $$...$$ for display math and $...$ for inline math. Always wrap display environments such as \\begin{align}...\\end{align} in $$...$$ as well. If the context is not enough to answer confidently, say what is specifically missing rather than guessing.
+
+Language rule: write the whole answer in the language the learner asked the question in — even when the article, the highlighted passage, or the earlier trail is written in a different language. Never switch to the source document's language for the explanation. If the question mixes languages, follow the language of its main sentence.
 
 User:
 I am studying the article "{root_title}".

@@ -128,3 +128,15 @@ describe("assemblePdfImages", () => {
     expect(legendItems.map((i) => i.role)).toEqual(["crop", "page", "page"]);
   });
 });
+
+describe("prompt language rule", () => {
+  it("answers in the question's language, not the document's", () => {
+    expect(DEFAULT_PROMPT_CONFIG.template).toContain("in the language the learner asked the question in");
+    expect(DEFAULT_PROMPT_CONFIG.template).toContain("Never switch to the source document's language");
+  });
+
+  it("carries the same rule into the PDF template", () => {
+    expect(DEFAULT_PROMPT_CONFIG.pdfTemplate).toContain("in the language the learner asked the question in");
+    expect(DEFAULT_PROMPT_CONFIG.pdfTemplate).toContain("even when the document shown in the images");
+  });
+});
