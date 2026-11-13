@@ -196,13 +196,13 @@ describe("DualPanel panel actions and free-ask target", () => {
     expect(screen.getByText(/Welcome to AskTree/i)).toBeTruthy();
   });
 
-  it("starts a tree from a markdown file opened in the empty state", async () => {
+  it("starts a tree from a document opened in the empty state", async () => {
     const createDocument = vi.fn().mockResolvedValue(undefined);
     mocks.ctx = { ...mocks.ctx, activePath: [], selectedText: null, createDocument };
     render(<DualPanel />);
 
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
-    fireEvent.click(screen.getByRole("button", { name: /open markdown file/i }));
+    fireEvent.click(screen.getByRole("button", { name: /open file/i }));
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;

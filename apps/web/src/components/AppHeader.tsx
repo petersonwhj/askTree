@@ -112,7 +112,7 @@ export function AppHeader({ onSettings, onToggleSidebar }: Props) {
         </h1>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => fileRef.current?.click()} title="Open markdown file as a new document">📂</button>
+        <button onClick={() => fileRef.current?.click()} title="Open a file as a new document">📂</button>
         <input
           ref={fileRef}
           type="file"

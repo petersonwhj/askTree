@@ -276,7 +276,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
           onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
         >
           <h2>Welcome to AskTree</h2>
-          <p>Open a Markdown file, paste an article, or drop a file here to start learning.</p>
+          <p>Open a Markdown, Word or PDF file, paste an article, or drop a file here to start learning.</p>
 
           <input
             type="text" placeholder="Article title..." value={newTitle}
@@ -297,7 +297,7 @@ export function DualPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
               onClick={() => emptyFileRef.current?.click()}
               type="button"
             >
-              📂 Open Markdown File
+              📂 Open File
             </button>
           </div>
           <input
